@@ -1,0 +1,72 @@
+#include amxmodx
+#include fakemeta
+
+new g_Query[256];
+new g_BotsCount;
+
+public plugin_init()
+{
+        set_task( 10.0, "TaskManageBots", .flags="b" );
+}
+
+public TaskManageBots(){
+	static PlayersNum; PlayersNum  = get_playersnum( 1 );
+	if( PlayersNum < 24 && !g_BotsCount ) {
+		CreateBot();
+	} else if( PlayersNum > 28 && g_BotsCount ) {
+		RemoveBot();
+	}
+}
+new const g_Names[][]=
+{
+	"IP: 193.203.39.181:27015",
+	"Forum: www.csgamers.ro"
+};
+
+RemoveBot(){
+	static i;
+        for( i = 0; i <= get_maxplayers(); i++ ) {
+                if(is_user_bot(i)) {
+                        server_cmd( "kick #%d", get_user_userid( i ) );
+                }
+	}
+	g_BotsCount = 0;
+}
+CreateBot(){
+	static Bot
+        formatex( g_Query, 255, "%s",g_Names[0]);
+	Bot = engfunc( EngFunc_CreateFakeClient, g_Query );
+       	if( Bot > 0 && pev_valid(Bot)) {
+		dllfunc(MetaFunc_CallGameEntity,"player",Bot);
+		set_pev(Bot,pev_flags,FL_FAKECLIENT);
+		set_pev(Bot, pev_model, "");
+		set_pev(Bot, pev_viewmodel2, "");
+		set_pev(Bot, pev_modelindex, 0);
+		set_pev(Bot, pev_renderfx, kRenderFxNone);
+		set_pev(Bot, pev_rendermode, kRenderTransAlpha);
+		set_pev(Bot, pev_renderamt, 0.0);
+		set_pdata_int(Bot,114,0);
+		message_begin(2, 86);
+		write_byte(Bot);
+		write_string("UNASSIGNED");
+		message_end();
+	}
+        formatex( g_Query, 255, "%s",g_Names[1]);
+	Bot = engfunc( EngFunc_CreateFakeClient, g_Query );
+       	if( Bot > 0 && pev_valid(Bot)) {
+		dllfunc(MetaFunc_CallGameEntity,"player",Bot);
+		set_pev(Bot,pev_flags,FL_FAKECLIENT);
+		set_pev(Bot, pev_model, "");
+		set_pev(Bot, pev_viewmodel2, "");
+		set_pev(Bot, pev_modelindex, 0);
+		set_pev(Bot, pev_renderfx, kRenderFxNone);
+		set_pev(Bot, pev_rendermode, kRenderTransAlpha);
+		set_pev(Bot, pev_renderamt, 0.0);
+		set_pdata_int(Bot,114,0);
+		message_begin(2, 86);
+		write_byte(Bot);
+		write_string("UNASSIGNED");
+		message_end();
+	}
+	g_BotsCount = 1
+}

@@ -1,0 +1,372 @@
+#include <amxmodx> 
+#include <amxmisc> 
+#include <fakemeta> 
+#include <csx> 
+
+#define MAX_GROUPS 18 
+#define TASK 666 
+
+#define PLUGIN "RangiCSGO" 
+#define VERSION "1.3" 
+#define AUTHOR "klqs & Legendary" 
+
+#pragma tabsize 0 
+
+enum Color { 
+NORMAL = 1, GREEN, TEAM_COLOR, GREY, RED, BLUE, 
+}; 
+
+enum CsTeams { 
+
+CS_TEAM_UNASSIGNED = 0, 
+CS_TEAM_T = 1, 
+CS_TEAM_CT = 2, 
+CS_TEAM_SPECTATOR = 3 
+}; 
+
+new TeamName[][] = { 
+"", "TERRORIST", "CT", "SPECTATOR" 
+}; 
+
+native CsTeams:cs_get_user_team(index); 
+
+new ranga[33]; 
+new cvar 
+new sync; 
+
+new const limit = 18; 
+new const limit_min = 1 
+new const rangi[][] = { 
+
+{0, "Silver I"}, 
+{50, "Silver II"}, 
+{150, "Silver III"}, 
+{175, "Silver IV"}, 
+{200, "Silver elite"}, 
+{250, "Silver elite master"}, 
+{350, "Gold nova I"}, 
+{500, "Gold nova II"}, 
+{750, "Gold nova III"}, 
+{900, "Gold nova master"}, 
+{1000, "Master guardian I"}, 
+{1200, "Master guardian II"}, 
+{1400, "Master guardian elite"}, 
+{1750, "Distinguished master guardian"}, 
+{2000, "Legendary eagle"}, 
+{3000, "Legendary eagle master"}, 
+{5000, "Supreme master first class"}, 
+{10000, "THE GLOBAL ELITE"} 
+} 
+
+new Float:liczby[] = {0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 2000.0} 
+
+public plugin_init() { 
+
+register_plugin(PLUGIN, VERSION, AUTHOR) 
+
+register_clcmd("say","hook_say"); 
+register_clcmd("say_team","hook_say2"); 
+
+register_clcmd("say /rangi", "motd") 
+sync = CreateHudSyncObj() 
+register_cvar("rangi_kolor", "0") 
+} 
+
+public client_connect(id) 
+{ 
+new param[1] 
+param[0] = id 
+set_task(1.0,"rank",TASK+id,param,1,"b") 
+} 
+
+public client_disconnect(id) 
+{ 
+if(task_exists(TASK+id)) 
+remove_task(TASK+id) 
+} 
+
+public rank(param[]) 
+{ 
+new id = param[0] 
+new stats[8] 
+new body[8] 
+get_user_stats(id, stats, body) 
+if(!is_user_alive(id)) 
+{ 
+id = pev(id, pev_iuser2); 
+if(!id) 
+id = param[0] 
+} 
+new Float:kdratio[33] 
+kdratio[id] = float(stats[0]) / float(stats[1]) 
+
+if(kdratio[id] >= liczby[ranga[id]] && stats[0] >= rangi[ranga[id]][0] && ranga[id] < limit) 
+ranga[id]++ 
+
+if(kdratio[id] < liczby[ranga[id]] && ranga[id] > limit_min) 
+ranga[id]-- 
+
+new name[33] 
+get_user_name(id,name,32) 
+cvar = get_cvar_num("rangi_kolor") 
+switch(cvar) 
+{ 
+case 0: 
+{ 
+set_hudmessage(255, 0, 0, 0.8, 0.2, _, _, 1.0, _, _, 1) 
+ShowSyncHudMsg(id, sync, "Nick: %s^nGrad: %s^nKilluri: %d^nForum: https://www..ro/forum", name , rangi[ranga[id]][1], stats[0], kdratio[id]) 
+} 
+case 1: 
+{ 
+set_hudmessage(255, 0, 0, 0.8, 0.2, _, _, 1.0, _, _, 1) 
+ShowSyncHudMsg(id, sync, "Nick: %s^nGrad: %s^nKilluri: %d^nForum: https://www..ro/forum", name , rangi[ranga[id]][1], stats[0], kdratio[id]) 
+} 
+case 2: 
+{ 
+set_hudmessage(255, 0, 0, 0.8, 0.2, _, _, 1.0, _, _, 1) 
+ShowSyncHudMsg(id, sync, "Nick: %s^nGrad: %s^nKilluri: %d^nForum: https://www..ro/forum", name , rangi[ranga[id]][1], stats[0], kdratio[id]) 
+} 
+case 3: 
+{ 
+set_hudmessage(255, 0, 0, 0.8, 0.2, _, _, 1.0, _, _, 1) 
+ShowSyncHudMsg(id, sync, "Nick: %s^nGrad: %s^nKilluri: %d^nForum: https://www..ro/forum", name , rangi[ranga[id]][1], stats[0], kdratio[id]) 
+} 
+} 
+} 
+
+public motd(id) 
+if(is_user_connected(id)) 
+show_motd(id, "rangi.txt", "Rangi na serwerze"); 
+
+public hook_say(id) { 
+
+if(is_user_bot(id)) 
+return PLUGIN_CONTINUE; 
+
+new stats[8] 
+new body[8] 
+get_user_stats(id, stats, body) 
+
+new Float:kdratio[33] 
+kdratio[id] = float(stats[0]) / float(stats[1]) 
+
+if(kdratio[id] >= liczby[ranga[id]] && stats[0] >= rangi[ranga[id]][0] && ranga[id] < limit) 
+ranga[id]++ 
+
+if(kdratio[id] < liczby[ranga[id]] && ranga[id] > limit_min) 
+ranga[id]-- 
+
+static chat[192]; 
+read_args(chat, sizeof(chat) - 1); 
+remove_quotes(chat); 
+
+if(equali(chat,"")) 
+return PLUGIN_CONTINUE; 
+
+new name[33] 
+get_user_name(id,name,32) 
+
+new bool:hasRang = false; 
+for(new i = 0; i < MAX_GROUPS; i++) { 
+
+switch(cs_get_user_team(id)) { 
+
+case CS_TEAM_T : {ColorChat(0, RED, "^x04[%s]^x03 %s^x01 : %s", rangi[ranga[id]][1], name, chat); return PLUGIN_HANDLED;}
+case CS_TEAM_CT : {ColorChat(0, BLUE, "^x04[%s]^x03 %s^x01 : %s", rangi[ranga[id]][1], name, chat); return PLUGIN_HANDLED;}
+case CS_TEAM_SPECTATOR : {ColorChat(0, GREY, "^x04[%s]^x03 %s^x01 : %s", rangi[ranga[id]][1], name, chat); return PLUGIN_HANDLED;}
+} 
+hasRang = true; 
+} 
+
+if(!hasRang) 
+get_team(id, chat); 
+
+return PLUGIN_HANDLED; 
+} 
+
+public hook_say2(id) { 
+
+if(is_user_bot(id)) 
+return PLUGIN_CONTINUE; 
+
+new stats[8] 
+new body[8] 
+get_user_stats(id, stats, body) 
+
+new Float:kdratio[33] 
+kdratio[id] = float(stats[0]) / float(stats[1]) 
+
+
+if(kdratio[id] >= liczby[ranga[id]] && stats[0] >= rangi[ranga[id]][0] && ranga[id] < limit) 
+ranga[id]++ 
+
+if(kdratio[id] < liczby[ranga[id]] && ranga[id] > limit_min) 
+ranga[id]-- 
+
+static chat[192]; 
+read_args(chat, sizeof(chat) - 1); 
+remove_quotes(chat); 
+
+if(equali(chat,"")) 
+return PLUGIN_CONTINUE; 
+
+new players[32], num; 
+get_players(players, num, "c"); 
+
+new name[33] 
+get_user_name(id,name,32) 
+
+new bool:hasRang = false; 
+for(new i = 0; i < MAX_GROUPS; i++) { 
+
+for(new x = 0; x < num; x++) { 
+
+if(get_user_team(players[x]) == get_user_team(id)) { 
+
+switch(cs_get_user_team(id)) { 
+
+case CS_TEAM_T : ColorChat(players[x], RED, "^x04[%s]^x01(%s)^x03 %s^x01 : %s", rangi[ranga[id]][1], "Terrorist", name, chat); 
+case CS_TEAM_CT : ColorChat(players[x], BLUE, "^x04[%s]^x01(%s)^x03 %s^x01 : %s", rangi[ranga[id]][1], "Counter-Terrorist", name, chat); 
+case CS_TEAM_SPECTATOR : ColorChat(players[x], GREY, "^x04[%s]^x01(%s)^x03 %s^x01 : %s", rangi[ranga[id]][1], "Spectator", name, chat); 
+} 
+} 
+} 
+hasRang = true; 
+} 
+if(!hasRang) 
+get_team2(id, num, players, chat); 
+
+return PLUGIN_HANDLED; 
+} 
+
+stock get_team(id, chat[]) { 
+
+new name[33] 
+get_user_name(id,name,32) 
+
+switch(cs_get_user_team(id)) { 
+
+case CS_TEAM_T : ColorChat(0, RED, "%s%s^x01 : %s", is_user_alive(id) ? "" : "*DEAD*", name, chat); 
+case CS_TEAM_CT : ColorChat(0, BLUE, "%s%s^x01 : %s", is_user_alive(id) ? "" : "*DEAD*", name, chat); 
+case CS_TEAM_SPECTATOR : ColorChat(0, GREY, "*SPEC*%s^x01 : %s", name, chat); 
+} 
+} 
+
+stock get_team2(id, num, players[], chat[]) { 
+
+new name[33] 
+get_user_name(id,name,32) 
+
+for(new x = 0; x < num; x++) { 
+if(get_user_team(players[x]) == get_user_team(id)) { 
+switch(cs_get_user_team(id)) { 
+case CS_TEAM_T : ColorChat(players[x], RED, "^x01(Terrorist)^x03 %s^x01 : %s", name, chat); 
+case CS_TEAM_CT : ColorChat(players[x], BLUE, "^x01(Counter-Terrorist)^x03 %s^x01 : %s", name, chat); 
+case CS_TEAM_SPECTATOR : ColorChat(players[x], GREY, "^x01(Spectator)^x03 %s^x01 : %s", name, chat); 
+} 
+} 
+} 
+} 
+
+ColorChat(id, Color:type, const msg[], {Float,Sql,Result,_}:...) { 
+new message[256]; 
+
+switch(type) { 
+case NORMAL: // clients scr_concolor cvar color 
+{ 
+message[0] = 0x01; 
+} 
+case GREEN: // Green 
+{ 
+message[0] = 0x04; 
+} 
+default: // White, Red, Blue 
+{ 
+message[0] = 0x03; 
+} 
+} 
+
+vformat(message[1], 251, msg, 4); 
+
+// Make sure message is not longer than 192 character. Will crash the server. 
+message[192] = '^0'; 
+
+new team, ColorChange, index, MSG_Type; 
+
+if(id) { 
+MSG_Type = MSG_ONE; 
+index = id; 
+} else { 
+index = FindPlayer(); 
+MSG_Type = MSG_ALL; 
+} 
+
+team = get_user_team(index); 
+ColorChange = ColorSelection(index, MSG_Type, type); 
+
+ShowColorMessage(index, MSG_Type, message); 
+
+if(ColorChange) { 
+Team_Info(index, MSG_Type, TeamName[team]); 
+} 
+} 
+
+ShowColorMessage(id, type, message[]) { 
+static bool:saytext_used; 
+static get_user_msgid_saytext; 
+if(!saytext_used) 
+{ 
+get_user_msgid_saytext = get_user_msgid("SayText"); 
+saytext_used = true; 
+} 
+message_begin(type, get_user_msgid_saytext, _, id); 
+write_byte(id); 
+write_string(message); 
+message_end(); 
+} 
+
+Team_Info(id, type, team[]) { 
+static bool:teaminfo_used; 
+static get_user_msgid_teaminfo; 
+
+if(!teaminfo_used) { 
+get_user_msgid_teaminfo = get_user_msgid("TeamInfo"); 
+teaminfo_used = true; 
+} 
+message_begin(type, get_user_msgid_teaminfo, _, id); 
+write_byte(id); 
+write_string(team); 
+message_end(); 
+
+return 1; 
+} 
+
+ColorSelection(index, type, Color:Type) { 
+switch(Type) { 
+case RED: 
+{ 
+return Team_Info(index, type, TeamName[1]); 
+} 
+case BLUE: 
+{ 
+return Team_Info(index, type, TeamName[2]); 
+} 
+case GREY: 
+{ 
+return Team_Info(index, type, TeamName[0]); 
+} 
+} 
+
+return 0; 
+} 
+
+FindPlayer() { 
+new i = -1; 
+
+while(i <= get_maxplayers()) { 
+if(is_user_connected(++i)) 
+return i; 
+} 
+
+return -1; 
+}

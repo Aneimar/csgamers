@@ -1,0 +1,775 @@
+#include <amxmodx>
+#include <amxmisc>
+#include <cstrike>
+#include <engine>
+#include <ColorChat>
+
+#pragma tabsize 0
+
+#include <fakemeta_util>
+
+#define PLUGIN "Mix"
+#define VERSION "0.O4"
+#define AUTHOR "Vlad & Hades"
+
+#define ADMIN_ACCESS   ADMIN_KICK
+#define SWAP_SCORE   15
+#define MAX_SCORE    16
+#define MIXMUP_CFG   "mixup.cfg"
+#define TAG      "[^x04Mix^x01]"
+#define ADVERTISING_TIME 55.0
+
+#define  SWITCH_TASK   112233
+
+#define PEV_PDATA_SAFE    2
+
+#define OFFSET_TEAM            114
+#define OFFSET_DEFUSE_PLANT    193
+#define HAS_DEFUSE_KIT        (1<<16)
+#define OFFSET_INTERNALMODEL    126
+
+new g_RoundMode, g_RoundHalf, IsChanged, g_Score [ 4 ];
+new g_Nosay, g_iMaxPlayers;
+
+new bool: hasdemo [ 33 ];
+
+new const g_Demoname[] = "MixCsG";
+
+new const g_szInterpCommands[ ][ ] = {
+   "ex_interp 0.01",
+   "cl_cmdrate 105",
+   "rate 25000",
+   "cl_updaterate 100"
+};
+
+stock const messages [ ] [ ] =
+{
+   "^x03[CsGamers]^x01 Forum:^x04 www.csgamers.ro",
+   "^x03[CsGamers]^x01 IP server:^x04 188.212.100.206:27015",
+        "^x03[CsGamers]^x01 Avem si un server mod Deathrun:^x04 DR.CSGAMERS.RO",
+        "^x03[CsGamers]^x01 Te asteptam pe^x04 TS.CSGAMERS.RO",
+        "^x03[CsGamers]^x01 Avem si un server mod JailBreak:^x04 JB.CSGAMERS.RO",
+   "^x03[CsGamers]^x01 Pentru cereri de admin intrati pe^x04 www.csgamers.ro",
+        "^x03[CsGamers]^x01 Avem si un server mod Clasic:^x04 PGL.CSGAMERS.RO"
+};
+
+new g_Commands[ ][ ] =
+{
+   "/t",
+   "/ct",
+   "/spec"
+};
+
+new sync
+
+public plugin_init() {
+   register_plugin(PLUGIN, VERSION, AUTHOR)
+   register_clcmd ("say /mix", "ShowMixMenu", ADMIN_ACCESS );
+   register_clcmd ("say_team /mix", "ShowMixMenu", ADMIN_ACCESS );
+   register_clcmd ("say", "Cmd_Say")
+   register_clcmd ("say", "hook_say" );
+   register_clcmd ("say", "hookSay");
+   register_clcmd ("say_team", "hookSay");
+   register_clcmd ("say /setari", "setari", ADMIN_ACCESS);
+   register_clcmd ("say_team /setari", "setari", ADMIN_ACCESS);
+   register_clcmd ("say /score", "scoremix");
+   register_clcmd ("say_team /score", "scoremix");
+
+   register_event ( "CurWeapon", "CurrentWeapon", "be", "1=1" );
+
+   register_logevent ( "RoundEnd", 2, "1=Round_End" );
+   
+   register_touch ( "weaponbox", "player", "OnPlayerTouchWeaponBox" );
+   
+   register_event ( "SendAudio", "Terro_Win", "a", "2=%!MRAD_terwin" );
+   register_event ( "SendAudio", "CT_Win", "a", "2=%!MRAD_ctwin" );
+   
+   register_concmd ( "amx_t", "swap_team", ADMIN_ACCESS, "<name> - mutare jucator la t" );
+   register_concmd ( "amx_ct", "swap_team", ADMIN_ACCESS, "<name> - mutare jucator la ct" );
+   register_concmd ( "amx_spec", "swap_team", ADMIN_ACCESS, "<name> - mutare jucator la spec" );
+   
+                     set_task ( ADVERTISING_TIME, "show_messages", _, _, _,"b" );
+
+   g_iMaxPlayers = get_maxplayers ( );
+
+          sync=CreateHudSyncObj()
+   
+      set_task(1.0,"taskMSG",.flags="b")
+}
+
+public taskMSG()
+{
+   set_hudmessage(80, 80, 80, -1.0, 0.03, 0, 0.0, 1.1, 0.0, 0.0, -1);
+   if ( g_RoundHalf == 1 )   ShowSyncHudMsg(0, sync, "Echipa TERO %d - %d Echipa CT", g_Score [ 0 ], g_Score [ 1 ]);
+   else if ( g_RoundHalf == 2 )   ShowSyncHudMsg(0, sync, "Echipa TERO %d - %d Echipa CT", g_Score [ 3 ], g_Score [ 2 ] );
+}
+
+public client_connect(id)
+{
+   hasdemo[id] = false;
+}
+
+public Terro_Win ( ) {
+   
+   if ( g_RoundHalf == 1 )
+      g_Score [ 0 ]++;
+   
+   if ( g_RoundHalf == 2 )
+      g_Score [ 3 ]++;
+}
+
+public CT_Win ( ) {
+   
+   if ( g_RoundHalf == 1 )
+      g_Score [ 1 ]++;
+   
+   if ( g_RoundHalf == 2 )
+      g_Score [ 2 ]++;
+}
+
+
+public ShowMixMenu ( id ) {
+   
+   if ( !get_user_admin ( id ) )
+      return 1;
+   
+   new menu = menu_create ( "\w[\rCsGamers\w] \yMeniu Admin:\w", "MixMenu_Items" );
+   
+   menu_additem ( menu, "Toti Jucatorii \rSpectator", "1", g_RoundHalf > 0 ? ( 1<<31 ) : 0  );
+   menu_additem ( menu, "Runda de \ralegeri", "2", g_RoundHalf > 0 ? ( 1<<31 ) : 0 );
+   menu_additem ( menu, "Runda de \rIncalzire", "3", g_RoundHalf > 0 ? ( 1<<31 ) : 0 );
+   menu_additem ( menu, "Porneste \rMix\w/\rWar", "4", g_RoundHalf > 0 ? ( 1<<31 ) : 0 );
+   menu_additem ( menu, "Restart \rMix\w/\rWar", "5", g_RoundHalf > 0 ? 0 : ( 1<<31 ) );
+   menu_additem ( menu, "Anuleaza Mix", "6", g_RoundHalf > 0 ? 0 : ( 1<<31 ) );
+   
+   menu_setprop ( menu, MPROP_EXIT, MEXIT_ALL );
+   menu_display ( id, menu, 0 );
+   
+   return 1;
+}
+
+public MixMenu_Items ( id, menu, item ) {
+   
+   if( item == MENU_EXIT ) return 1;
+   
+   new data [ 6 ], szName [ 64 ];
+   new access, callback;
+   menu_item_getinfo ( menu, item, access, data,charsmax ( data ), szName,charsmax ( szName ), callback );
+   new key = str_to_num ( data );
+   
+   switch ( key ) {
+      
+      case 1:       
+      {
+
+      if( g_RoundHalf != 0 )
+      {
+         ColorChat(id, GREEN, "%s %s nu poti pune jucatorii spectator deja esti in timpul unui mix.", TAG, get_name ( id ) );
+         
+         return PLUGIN_HANDLED;
+      }
+      server_cmd("sv_restart 1");
+      static players;
+      for ( players = 1; players <= get_maxplayers ( ); players++ ) {
+         
+         if (( is_user_connected ( players ) ) && is_user_alive ( players ) ) {
+            
+            if ( get_user_team ( players ) == 1 ) {
+               user_silentkill ( players );
+               cs_set_user_team ( players, 3 );
+               
+            }
+            
+            else if ( get_user_team ( players ) == 2 ) {
+               
+               set_task ( 1.0, "move_ct_players_spec", players + 661272 );
+               
+            }
+            
+         }
+         
+      }
+      
+      ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a mutat toti jucatorii la SPECTATOR.", get_name ( id ) );
+      
+      g_RoundHalf = 0;
+      g_RoundMode = 0;
+      g_Nosay = 0;
+
+      }
+      
+      case 2:
+      {
+         if( g_RoundHalf != 0 )
+         {
+            ColorChat(id, GREEN, " %s nu poti porni runda de lame deoarece esti in timpul unui mix.", get_name ( id ) );
+
+            return PLUGIN_HANDLED;
+         }
+         server_cmd ( "sv_restart 1" );
+         
+         g_RoundHalf = 0;
+         g_Nosay = 0;
+         g_RoundMode = 1;
+         fm_strip_user_weapons ( 0 );
+         fm_give_item ( id, "weapon_knife" );
+         engclient_cmd ( id, "weapon_knife" );
+         CurrentWeapon ( id );
+         
+         ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] a pornit runda de alegeri.", get_name ( id ) );
+      }
+      
+      case 3:
+      {
+         server_cmd ( "sv_restart 1" );
+         
+         g_RoundHalf = 0;
+         g_Nosay = 0;
+         g_RoundMode = 2;
+         server_cmd ( "exec %s", MIXMUP_CFG );
+         
+                           ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a pornit runda de incalzire -^x04 HF^x01.", get_name ( id ) );
+      }
+      
+      case 4:
+      {
+         if ( g_RoundHalf != 0)
+         {
+            ColorChat(id, GREEN, "Mix-ul este deja pornit ,il poti decat restarta sau anula.", get_name ( id ) );
+            return PLUGIN_HANDLED;
+         }
+         server_cmd ( "exec mixstart.cfg");
+         server_cmd ( "sv_restart 1" );
+         
+         g_RoundMode = 0;
+         g_RoundHalf = 1;
+         g_Nosay = 1;
+         g_Score [ 0 ] = 0;
+         g_Score [ 1 ] = 0;
+         g_Score [ 2 ] = 0;
+         g_Score [ 3 ] = 0;
+         
+         ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ Meciul a inceput -^x04 GL^x01 &^x04 HF^x01.", get_name ( id ) );
+         ColorChat(0, GREEN, "^x04[ ] ^x01Live ! Live ! Live !" );
+         ColorChat(0, GREEN, "^x04[ ] ^x01Live ! Live ! Live !" );
+         ColorChat(0, GREEN, "^x04[ ] ^x01Live ! Live ! Live !" );
+      }
+      
+      case 5:
+      {
+         if ( g_RoundHalf == 1 ) {
+            
+            g_Score [ 0 ] = 0;
+            g_Score [ 1 ] = 0;
+            server_cmd ( "sv_restart 1" );
+         
+            ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a dat Restart -^x04 GL^x01 &^x04 HF^x01.", get_name ( id ) );
+            
+         }
+         
+         else if ( g_RoundHalf == 2 ) {
+            
+            g_Score [ 2 ] = g_Score [ 0 ];
+            g_Score [ 3 ] = g_Score [ 1 ];
+            
+            server_cmd ( "sv_restart 1" );
+            
+            ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a dat Restart -^x04 GL^x01 &^x04 HF^x01.", get_name ( id ) );
+            
+            
+            
+         }
+         if ( (g_RoundMode == 0) && (g_RoundHalf == 0))
+         {
+            server_cmd ( "sv_restart 1" );
+         
+             ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a dat Restart -^x04 GL^x01 &^x04 HF^x01.", get_name ( id ) );
+         }
+         else if ( (g_RoundMode == 2) && (g_RoundHalf == 0))
+         {
+            server_cmd ( "sv_restart 1" );
+         
+             ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] ~ a dat Restart -^x04 GL^x01 &^x04 HF^x01.", get_name ( id ) );
+         }
+      }
+      
+      case 6:
+      {   
+         if( g_RoundHalf == 0 )
+         {
+            ColorChat(id, GREEN, "In acest moment nu ruleaza nici un mix.", get_name ( id ) );
+
+            return PLUGIN_HANDLED;
+         }
+         
+         ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] a anulat mix-ul.", get_name ( id ) );
+         
+         g_RoundHalf = 0;
+         g_RoundMode = 0;
+         IsChanged = 0;
+         g_Nosay = 0;
+         g_Score [ 0 ] = g_Score [ 1 ] = 0;
+         g_Score [ 2 ] = g_Score [ 3 ] = 0;
+         
+      }
+   }
+   
+   menu_destroy ( menu );
+   return 1;
+   
+}
+
+
+
+public move_ct_players_spec ( id ) {
+   
+   id -= 661272;
+   user_silentkill ( id );
+   cs_set_user_team ( id, 3 );
+   
+}
+
+public EndMix ( ) {
+   
+   g_RoundHalf = 0;
+   g_RoundMode = 0;
+   IsChanged = 0;
+   g_Nosay = 0;
+   
+   fm_strip_user_weapons ( 0 );
+   fm_give_item ( 0, "weapon_knife" );
+   
+   if( g_Score[ 2 ] > g_Score [ 3 ] )
+   {
+      ColorChat(0, GREEN, "^x04*^x01 Echipa^x03 CT^x01 a^x04 castigat^x01 meciul - ^x04GL^x01.");
+      ColorChat(0, GREEN, "^x01Scor^x03 CT^x01:^x04 %d^x01 | Scor^x03 TERO^x01:^x04 %d", g_Score [ 2 ], g_Score [ 3 ]);
+   }
+   else if( g_Score[ 3 ] > g_Score [ 2 ] )
+   {
+      ColorChat(0, GREEN, "^x04*^x01 Echipa^x03 TERO^x01 a^x04 castigat^x01 meciul - ^x04GL^x01.");
+      ColorChat(0, GREEN, "^x01Scor^x03 TERO^x01:^x04 %d^x01 | Scor^x03 CT^x01:^x04 %d", g_Score [ 3 ], g_Score [ 2 ]);
+   }
+   else if( g_Score[ 3 ] == g_Score [ 2 ] )
+   {
+      ColorChat(0, GREEN, "^x04*^x01 Meciul s-a terminat cu egalitate - ^x04GL^x01.");
+      ColorChat(0, GREEN, "^x01Scor^x03 TERO^x01:^x04 %d^x01 | Scor^x03 CT^x01:^x04 %d", g_Score [ 3 ], g_Score [ 2 ]);
+   }
+   
+   
+}
+
+public SwapTeams ( ) {
+   
+   new iPlayers [ 32 ],  iNum;
+   get_players ( iPlayers, iNum, "ch" );
+   
+   if ( iNum ) {
+      
+      new  id2;
+      for ( --iNum; iNum >= 0; iNum-- ) {
+         
+         id2 = iPlayers [ iNum ];
+         BeginDelayedTeamChange ( id2 );
+         
+      }
+   }
+   
+}
+
+public scoremix ( id )
+{
+   if (( g_RoundHalf == 1 ) && ( g_Score[ 0 ] > g_Score[ 1 ] ))
+   {
+      
+   }
+   else if (( g_RoundHalf == 1 ) && ( g_Score[ 1 ] > g_Score[ 0 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 1 ) && ( g_Score[ 1 ] == g_Score[ 0 ] ))
+   {
+      ColorChat(id, GREEN, "^x04*^x01 Echipele au ajuns la^x03 egalitate^x01 in prima repriza a mix-ului.");
+      
+   }
+   
+   if (( g_RoundHalf == 2 ) && ( g_Score[ 2 ] > g_Score[ 3 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 2 ) && ( g_Score[ 3 ] > g_Score[ 2 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 2 ) && ( g_Score[ 2 ] == g_Score[ 3 ] ))
+   {
+      ColorChat(id, GREEN, "^x04*^x01 Echipele au ajuns la^x03 egalitate^x01 in a doua repriza a mix-ului.");
+      
+   }
+   
+}
+public RoundEnd ( ) {
+   
+   if (( g_RoundHalf == 1 ) && ( g_Score[ 0 ] > g_Score[ 1 ] ))
+   {
+
+      
+   }
+   else if (( g_RoundHalf == 1 ) && ( g_Score[ 1 ] > g_Score[ 0 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 1 ) && ( g_Score[ 1 ] == g_Score[ 0 ] ))
+   {
+      ColorChat(0, GREEN, "^x04*^x01 Echipele au ajuns la^x03 egalitate^x01 in prima repriza a mix-ului.");
+      
+   }
+   
+   if (( g_RoundHalf == 2 ) && ( g_Score[ 2 ] > g_Score[ 3 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 2 ) && ( g_Score[ 3 ] > g_Score[ 2 ] ))
+   {
+   
+      
+   }
+   else if (( g_RoundHalf == 2 ) && ( g_Score[ 2 ] == g_Score[ 3 ] ))
+   {
+      ColorChat(0, GREEN, "^x04*^x01 Echipele au ajuns la^x03 egalitate^x01 in a doua repriza a mix-ului.");
+      
+   }
+   
+   if ( ( g_Score [ 0 ] + g_Score [ 1 ] == SWAP_SCORE ) && (!IsChanged )) {
+      
+      g_RoundMode = 0;
+      g_RoundHalf = 2;
+      g_Nosay = 1;
+      IsChanged = 1;
+      g_Score [ 2 ] = g_Score [ 0 ];
+      g_Score [ 3 ] = g_Score [ 1 ];
+      
+      SwapTeams ( );
+      server_cmd ( "sv_restart 1" );
+      
+      ColorChat(0, GREEN, "^x04*^x01 Echipele au fost schimbate cu succes!");
+      ColorChat(0, GREEN, "^x04*^x01 A pornit^x03 a doua parte^x01 a mix-ului -^x04 GL^x01 &^x04 HF^x01.");
+      
+   }
+   
+   
+   if ( g_Score [ 2 ] >= MAX_SCORE || g_Score [ 3 ] >= MAX_SCORE ) {
+      
+      
+      EndMix ( );
+      g_Score [ 0 ] = g_Score [ 1 ] = 0;
+      g_Score [ 2 ] = g_Score [ 3 ] = 0;
+      ColorChat(0, GREEN, "^x04~ Meciul s-a terminat - GL.");
+   }
+   
+   
+   
+}
+
+public CurrentWeapon ( id ) {
+   
+   if ( g_RoundMode == 1 )
+      engclient_cmd ( id, "weapon_knife" );
+   
+}
+
+public OnPlayerTouchWeaponBox ( ent, id ) {
+   
+   if ( g_RoundMode == 1 )
+      return PLUGIN_HANDLED;
+   
+   return PLUGIN_CONTINUE;
+   
+}
+
+public BeginDelayedTeamChange(  id  )
+{
+   
+   switch(  id  )
+   {
+      
+      case  1..6:  set_task(  0.1, "ChangeUserTeamWithDelay",  id  +  SWITCH_TASK  );
+         case  7..13:  set_task(  0.2, "ChangeUserTeamWithDelay",  id  +  SWITCH_TASK  );
+         case  14..20:  set_task(  0.3, "ChangeUserTeamWithDelay",  id  +  SWITCH_TASK  );
+         case  21..26:  set_task(  0.4, "ChangeUserTeamWithDelay",  id  +  SWITCH_TASK  );
+         case  27..32:  set_task(  0.5, "ChangeUserTeamWithDelay",  id  +  SWITCH_TASK  );
+      }
+}
+
+public Cmd_Say( id )
+{
+   if(( g_Nosay == 1 ) && !get_user_admin ( id ) )
+   {
+      ColorChat(id, GREEN, "^x04Chatul say este blocat pentru playeri, foloseste say_team.");
+      return PLUGIN_HANDLED_MAIN;
+   }
+   return PLUGIN_CONTINUE;
+}
+
+public ChangeUserTeamWithDelay(  id  )
+{
+   
+   id  -=  SWITCH_TASK;
+   if(  !is_user_connected(  id  )  )  return 1;
+   
+   switch(  get_user_team(  id  )   )
+   {
+      
+      case  1:  fm_cs_set_user_team(  id,  2  );
+         case  2:fm_cs_set_user_team(  id,  1  );
+         
+   }
+   
+   return 0;
+}
+
+public setari( id )
+{
+   if( get_user_flags( id ) & ADMIN_ACCESS )
+   {
+      
+      static iSize = sizeof ( g_szInterpCommands );
+      
+      for( new i = 0; i < iSize; i++ )
+         client_cmd( 0, g_szInterpCommands[ i ] );
+      
+      new szName[ 32 ];
+      get_user_name( id, szName, sizeof ( szName ) -1 );
+      
+        ColorChat(0, GREEN, "^x04*^x01 admin [^x03 %s^x01 ] a impus setarile pentru mix.", get_name ( id ) );
+      client_print ( 0, print_console, "Ti-au fost actualizate urmatoarele setari: ex_interp 0.01 | cl_updaterate 100 | cl_cmdrate 105 | rate 25000");
+      
+      return PLUGIN_HANDLED;
+   }
+   return PLUGIN_HANDLED;
+}
+
+
+public hookSay( id )
+{
+   new szSaid[ 192 ];
+   read_args( szSaid, sizeof( szSaid ) -1 );
+   remove_quotes( szSaid );
+   
+   if( contain( szSaid, "/demo" ) != -1 )
+   {
+      if( get_user_flags( id ) & ADMIN_ACCESS )
+      {
+         new target[ 32 ];
+         copy( target, sizeof( target ) -1, szSaid[ 6 ]);
+         
+         new id2 = cmd_target( id, target, 2 );
+         
+         if(hasdemo[id2])
+         {
+            static szName[ 32 ];
+            get_user_name( id2, szName, sizeof( szName ) -1 );
+            ColorChat(id, GREEN, "^x04*^x01 jucatorul [^x03 %s^x01 ] are deja demo pornit.", szName );
+            return PLUGIN_HANDLED;
+         }
+         if( id2 )
+         {
+            static szName[ 32 ];
+            get_user_name( id2, szName, sizeof( szName ) -1 )
+            new mapname[32];
+            get_mapname(mapname,31);
+            hasdemo[id2] = true;   
+                client_cmd( id2, "record ^"%s_%s^"", g_Demoname, mapname );
+                ColorChat(0, GREEN, "^x04*^x01 adminul [^x03 %s^x01 ] a pornit demo jucatorului [^x03 %s^x01 ]", get_name(id), szName);
+         }
+         else
+         {
+            ColorChat(id, GREEN, "^x04 Jucatorul nu exista pe server.");
+         }
+         
+         return PLUGIN_HANDLED;
+      }
+      }
+      if( contain( szSaid, "/ss" ) != -1 )
+     {
+      if( get_user_flags( id ) & ADMIN_ACCESS )
+      {
+         new target2[ 32 ];
+         copy( target2, sizeof( target2 ) -1, szSaid[ 6 ] );
+         
+         new id2 = cmd_target( id, target2, 2 );
+         
+         if( id2 )
+         {
+                static szName[ 32 ];
+            get_user_name( id2, szName, sizeof( szName ) -1 );
+            client_cmd( id2, "snapshot");
+                ColorChat(0, GREEN, "^x04*^x01 adminul [^x03 %s^x01 ] a facut o poza jucatorului [^x03 %s^x01 ]", get_name(id) , szName);
+
+         }
+         
+         else
+         {
+            ColorChat(id, GREEN, "^x04 Jucatorul nu exista pe server.");
+         }
+         
+         return PLUGIN_HANDLED;
+      }
+   }
+   return PLUGIN_CONTINUE;
+}
+
+public hook_say ( e_Index )
+{
+   static s_Args[ 192 ], s_Command[ 192 ];
+   read_args ( s_Args, charsmax ( s_Args ) );
+   
+   if ( ! s_Args[ 0 ] )
+      return PLUGIN_CONTINUE;
+   remove_quotes ( s_Args[ 0 ] );
+   
+   for ( new i; i < sizeof g_Commands; i++ )
+   {
+      if ( equal ( s_Args, g_Commands[ i ], strlen ( g_Commands[ i ] ) ) )
+      {
+         if ( is_user_admin ( e_Index ) )
+         {
+            replace ( s_Args, charsmax ( s_Args ), "/", "" );
+            formatex ( s_Command, charsmax ( s_Command ),"amx_%s", s_Args );
+            client_cmd ( e_Index, s_Command );
+         }
+         
+         break;
+      }
+   }
+   
+   return PLUGIN_CONTINUE;
+}
+
+public swap_team ( id, level, cid ) {
+   if( ! cmd_access ( id, level, cid, 2 ) )
+      return PLUGIN_HANDLED;
+   
+   new szArg[ 10 ], target[ 32 ], szPlayerName[ 32 ], szAdminName[ 32 ];
+   
+   read_argv( 0, szArg, 9 );
+   read_argv( 1, target, 31 );
+   
+   new player = cmd_target ( id, target, 11 );
+   
+   if( ! player ) {
+      
+      ColorChat(id, GREEN, "^x04 Jucatorul nu exista pe server.");
+      return PLUGIN_HANDLED;
+      
+   }
+   
+   get_user_name ( player, szPlayerName, 31 );
+   get_user_name ( id, szAdminName, 31 );
+   
+   switch ( szArg[ 4 ] ) {
+      case 't':
+      {
+         user_silentkill ( player );
+         cs_set_user_team ( player, 1 );
+         ColorChat(0, GREEN, "^x04*^x01 Jucatorul [^x04 %s^x01 ] a fost transferat de Adminul [^x04 %s^x01 ] la TERO.", szPlayerName, szAdminName );
+      }
+      
+      
+      case 'c':
+      {   
+         user_silentkill ( player );
+         cs_set_user_team ( player, 2 );
+         ColorChat(0, GREEN, "^x04*^x01 Jucatorul [^x04 %s^x01 ] a fost transferat de Adminul [^x04 %s^x01 ] la COUNTER.", szPlayerName, szAdminName );
+         
+      }
+      
+      case 's':
+      {
+         if(is_user_alive(player))
+         {
+            user_silentkill ( player );
+            cs_set_user_team ( player, 3 );
+            ColorChat(0, GREEN, "^x04*^x01 Jucatorul [^x04 %s^x01 ] a fost transferat de Adminul [^x04 %s^x01 ] la SPECTATOR.", szPlayerName, szAdminName );
+         }
+      }
+      
+   }
+   
+   return PLUGIN_CONTINUE;
+}
+
+bool: get_user_admin ( id ) {
+   
+   if ( get_user_flags ( id ) & ADMIN_ACCESS )
+      return true;
+   
+   return false;
+   
+}
+
+stock get_name ( id ) {
+   
+   new name [ 32 ] ;
+   get_user_name ( id, name, 31 );
+   
+   return name;
+}
+
+fm_cs_set_user_team(id, team) {
+   if(!(1 <= id <= g_iMaxPlayers) || pev_valid(id) != PEV_PDATA_SAFE)
+   {
+      return 0
+   }
+   
+   switch(team)
+   {
+      case 1: 
+      {
+         new iDefuser = get_pdata_int(id, OFFSET_DEFUSE_PLANT)
+         if(iDefuser & HAS_DEFUSE_KIT)
+         {
+            iDefuser -= HAS_DEFUSE_KIT
+            set_pdata_int(id, OFFSET_DEFUSE_PLANT, iDefuser)
+         }
+         set_pdata_int(id, OFFSET_TEAM, 1)
+         //    set_pdata_int(id, OFFSET_INTERNALMODEL, 4)
+      }
+      case 2:
+      {
+         if(pev(id, pev_weapons) & (1<<CSW_C4))
+         {
+            engclient_cmd(id, "drop", "weapon_c4")
+         }
+         set_pdata_int(id, OFFSET_TEAM, 2)
+         //    set_pdata_int(id, OFFSET_INTERNALMODEL, 6)
+      }
+   }
+   
+   dllfunc(DLLFunc_ClientUserInfoChanged, id, engfunc(EngFunc_GetInfoKeyBuffer, id))
+   
+   return 1
+}
+
+public show_messages ( )
+{
+   new Buffer[256];
+   formatex(Buffer, sizeof Buffer - 1, "^x04%s", messages[random(sizeof messages)]);
+   
+   new players[32], num, id;
+   get_players(players, num);
+   
+   for(new i = 0 ; i < num ; i++)
+   {
+      id = players[i];
+   
+      message_begin(MSG_ONE, get_user_msgid("SayText"), _, id);
+      write_byte(id);
+      write_string(Buffer);
+      message_end();
+   }
+   }

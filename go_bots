@@ -19,8 +19,8 @@ public TaskManageBots(){
 }
 new const g_Names[][]=
 {
-	"IP: 193.203.39.181:27015",
-	"Forum: www.csgamers.ro"
+	"IP: 193.203.39.181:27015 [BOT]",
+	"Forum: www.csgamers.ro [BOT]"
 };
 
 RemoveBot(){

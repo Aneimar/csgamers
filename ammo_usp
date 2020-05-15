@@ -1,0 +1,39 @@
+#include <amxmodx>
+#include <engine>
+#include <cstrike>
+
+public plugin_init() {
+    register_plugin("Ammo USP", "0.3.1", "CsGamers")
+    register_event("CurWeapon" , "event_CurWeapon" , "be" , "1=1")
+}
+
+public event_CurWeapon(id) {
+    if(!is_user_alive(id))
+        return PLUGIN_CONTINUE;
+    
+    static weaponid
+    new clip
+    
+    weaponid = read_data(2)
+    clip = read_data(3)
+    
+    give_ammo(id , weaponid , clip)
+    
+    return PLUGIN_CONTINUE;
+}
+
+public give_ammo(id , weaponid , clip) {
+    if(is_user_alive(id) && get_user_team(id) == 2 && weaponid==CSW_USP && !clip) {
+        static wpn
+        wpn = -1
+        
+        while((wpn = find_ent_by_class(wpn , "weapon_usp")) != 0) {
+            if(id == entity_get_edict(wpn , EV_ENT_owner)) {
+                cs_set_weapon_ammo(wpn , 12)
+                break;
+            }
+        
+  }
+  }
+  }
+    

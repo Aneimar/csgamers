@@ -1,0 +1,129 @@
+/*
+^x01 - Normal Color
+^x03 - Team Color CT:blue,T:red,SPEC:gry
+^x04 - Green
+*/
+
+#include <amxmodx>
+#include <amxmisc>
+#include <cstrike>
+#include <fun>
+#include <colorchat>
+
+#define adtime	 600.0 //Default of 10 minuites
+
+new pcvar_Display
+new pcvar_Active
+new pcvar_Sound
+new pcvar_Advertise
+
+public plugin_init()
+{
+	register_plugin("Spec/ct", "1.1","Vicious Vixen")
+	register_clcmd("say /spec", "go_spec")
+	register_clcmd("say /unspec", "go_back")
+	pcvar_Advertise = register_cvar("sv_advertise", "1")
+	pcvar_Display = register_cvar("sv_display", "1")
+	pcvar_Active = register_cvar("sv_active", "1")
+	pcvar_Sound = register_cvar("sv_sound", "0")
+}
+
+public plugin_precache() 
+{   
+	precache_sound("prepare2_ultimate.wav")
+	precache_sound("suicide4_ultimate.wav")
+}
+
+public go_spec(id)
+{
+	if(get_pcvar_num(pcvar_Display) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_CT)
+	{
+		new name[33]
+		get_user_name(id, name, 32)
+		ColorChat(0, RED, "^x03 [^x04 System^x03 ]^x01 Jucatorul^x04 %s^x01 s-a mutat la echipa^x03 Spectatori", name)
+		ColorChat(id, RED, "^x03 [^x04 System^x03 ]^x01 Pentru a te^x03 reintoarce^x01 la echipa C.T scrie^x04 /unspec", name)
+	}
+	if(get_pcvar_num(pcvar_Active) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_CT)
+	{
+		new name[33]
+		get_user_name(id, name, 32)
+		user_silentkill(id);
+		cs_set_user_team(id, CS_TEAM_SPECTATOR)
+	}
+	if(get_pcvar_num(pcvar_Display) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_T)
+	{
+		new name[33]
+		ColorChat(id, RED, "^x03 [^x04 System^x03 ]^x01 Comanda este^x04 indisponibila^x01 pentru echipa^x03 Tero", name)
+	}
+	if(get_pcvar_num(pcvar_Sound) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_T)
+	{
+		client_cmd(id, "spk sound/suicide4_ultimate.wav")
+	}
+
+	return PLUGIN_HANDLED
+}
+
+public go_back(id)
+{
+	if(get_pcvar_num(pcvar_Display) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_SPECTATOR)
+	{
+		new name[33]
+		get_user_name(id, name, 32)
+		ColorChat(0, RED, "^x03 [^x04 System^x03 ]^x01 Jucatorul^x04 %s^x01 s-a mutat la echipa^x03 CT", name)
+	}
+	if(get_pcvar_num(pcvar_Sound) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_SPECTATOR)
+	{
+		client_cmd(id, "spk sound/prepare2_ultimate.wav")
+	}
+	if(get_pcvar_num(pcvar_Active) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_SPECTATOR)
+	{
+		new name[33]
+		get_user_name(id, name, 32)
+		cs_set_user_team(id, CS_TEAM_CT)
+	}
+	if(get_pcvar_num(pcvar_Display) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_T)
+	{
+		new name[33]
+		ColorChat(id, RED, "^x03 [^x04 System^x03 ]^x01 Comanda este^x04 indisponibila^x01 pentru echipa^x03 Tero", name)
+	}
+	if(get_pcvar_num(pcvar_Sound) == 1)
+	if(cs_get_user_team(id) == CS_TEAM_T)
+	{
+		client_cmd(id, "spk sound/suicide4_ultimate.wav")
+	}
+
+	return PLUGIN_HANDLED
+}
+
+public advertise()
+{
+	set_hudmessage(255, 0, 0, -1.0, 0.20, 0, 0.2, 12.0)
+	show_hudmessage(0, "Daca vrei sa iei o pauza, scrie in say /spec")
+}
+
+public client_putinserver(id)
+{
+	if(get_pcvar_num(pcvar_Advertise) == 1)
+	{
+		set_task(10.0, "connectmessage", id, _, _, "a", 1)
+	}
+}
+
+public connectmessage(id)
+{
+	if(is_user_connected(id))
+	{
+		// ColorChat(id, RED, "^x03 [^x04 System^x03 ]^x01 Pentru a te muta la^x04 spectatori^x01, scrie^x04 /spec")
+	}
+}
+/* AMXX-Studio Notes - DO NOT MODIFY BELOW HERE
+*{\\ rtf1\\ ansi\\ ansicpg1252\\ deff0\\ deflang1033{\\ fonttbl{\\ f0\\ fnil Tahoma;}}\n\\ viewkind4\\ uc1\\ pard\\ f0\\ fs16 \n\\ par }
+*/

@@ -1,0 +1,1267 @@
+#include < amxmodx >
+#include < amxmisc >
+#include < cstrike >
+#include < fakemeta >
+#include < hamsandwich >
+#include < nvault >
+#include < fun >
+#include < fcs >
+
+#pragma semicolon 1
+
+
+#define PLUGIN "Deathrun Credits System + Shop"
+#define VERSION "1.3.3Beta"
+
+#define	ONE_DAY_IN_SECONDS	86400
+#define TASK_pentru	06091993
+#define FCS_TEAM_FURIEN 	CS_TEAM_T
+#define FCS_TEAM_ANTIFURIEN	CS_TEAM_CT
+
+enum Color
+{
+	NORMAL = 1, 		// Culoarea care o are jucatorul setata in cvar-ul scr_concolor.
+	GREEN, 			// Culoare Verde.
+	TEAM_COLOR, 		// Culoare Rosu, Albastru, Gri.
+	GREY, 			// Culoarea Gri.
+	RED, 			// Culoarea Rosu.
+	BLUE, 			// Culoarea Albastru.
+};
+
+new TeamName[  ][  ] = 
+{
+	"",
+	"TERRORIST",
+	"CT",
+	"SPECTATOR"
+};
+
+new g_MsgSync;
+new const g_szTag[ ] = "[Deathrun System]";
+new const g_szGiveCreditsFlag[ ] = "a";
+new g_szMenuName[ ] = "\r[ \dDeathrun CsGamers \r]\y MENIU SHOP";
+
+enum _:iCvars
+{
+	ENABLE,
+	
+	NADES_PRICE,
+	NADES_TO,
+	
+	HP_PRICE,
+	HP_AMOUNT,
+	HP_TO,
+	
+	AP_PRICE,
+	AP_AMOUNT,
+	AP_TO,
+	
+	DEAGLE_PRICE,
+	DEAGLE_BACKPACK_AMMO,
+	DEAGLE_TO,
+	
+	SPEED_PRICE,
+	SPEED_AMOUNT,
+	SPEED_DURATION,
+	SPEED_TO,
+	
+	GRAVITY_PRICE,
+	GRAVITY_AMOUNT,
+	GRAVITY_DURATION,
+	GRAVITY_TO
+	
+	
+}
+
+enum _:WhatUserHas
+{
+	SPEED,
+	GRAVITY,
+}
+
+new g_iCvar[ iCvars ];
+new g_iCvarPruneDays;
+new g_iCvarEntry;
+new g_iCvarRetire;
+
+new g_iCvarPTREnable;
+new g_iCvarPTRMinutes;
+new g_iCvarPTRCredits;
+
+new g_iCvarKREnable;
+new g_iCvarKRCredits;
+new g_iCvarKRHSCredits;
+
+new g_iCvarTSEnable;
+new g_iCvarTSMaxCredits;
+
+new g_iCvarWTREnable;
+new g_iCvarWTRFurien;
+new g_iCvarWTRAnti;
+
+new g_szName[ 33 ][ 32 ];
+new g_iUserCredits[ 33 ];
+new g_iUserTime[ 33 ];
+new g_iUserRetired[ 33 ];
+
+new bool:g_bUserHas[ 33 ][ WhatUserHas ];
+
+new iVault;
+new g_iMaxPlayers;
+
+// Do not modify this.
+new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame;
+
+
+public plugin_init( )
+{
+	register_plugin( PLUGIN, VERSION, "Askhanar" );
+	register_cvar( "fcs_version_aio_shop", VERSION, FCVAR_SERVER | FCVAR_SPONLY ); 
+
+	g_iCvarPruneDays = register_cvar( "fcs_prunedays", "30" );
+	g_iCvarEntry = register_cvar( "fcs_entry_credits", "15" );
+	g_iCvarRetire = register_cvar( "fcs_maxretrive", "0" );
+	
+	g_iCvarPTREnable = register_cvar( "fcs_pentru_enable", "1" );
+	g_iCvarPTRMinutes = register_cvar( "fcs_pentru_minutes", "10" );
+	g_iCvarPTRCredits = register_cvar( "fcs_pentru_credits", "15" );
+	
+	g_iCvarKREnable = register_cvar( "fcs_kr_enable", "1" );
+	g_iCvarKRCredits = register_cvar( "fcs_kr_credits", "1" );
+	g_iCvarKRHSCredits = register_cvar( "fcs_kr_hscredits", "1" );//( bonus, fcs_kr_credits + fcs_kr_hscredits )
+	
+	g_iCvarTSEnable = register_cvar("fcs_transfer_enable", "1" );
+	g_iCvarTSMaxCredits = register_cvar("fcs_transfer_maxcredits", "100" );
+
+	g_iCvarWTREnable = register_cvar( "fcs_wtr_enable", "1" );
+	g_iCvarWTRFurien = register_cvar( "fcs_wtr_furien", "6" );
+	g_iCvarWTRAnti = register_cvar( "fcs_wtr_antifurien", "3" );
+	
+	g_iCvar[ ENABLE ] = register_cvar( "fcsshop_enable", "1" );
+	
+	g_iCvar[ NADES_PRICE ] = register_cvar( "fcsshop_nades_price", "25" );
+	g_iCvar[ NADES_TO ] = register_cvar( "fcsshop_nades_team", "1" );
+	
+	g_iCvar[ HP_PRICE ] = register_cvar( "fcsshop_hp_price", "60" );
+	g_iCvar[ HP_AMOUNT ] = register_cvar( "fcsshop_hp_amount", "300" );
+	g_iCvar[ HP_TO ] = register_cvar( "fcsshop_hp_team", "3" );
+	
+	g_iCvar[ AP_PRICE ] = register_cvar( "fcsshop_ap_price", "55" );
+	g_iCvar[ AP_AMOUNT ] = register_cvar( "fcsshop_ap_amount", "500" );
+	g_iCvar[ AP_TO ] = register_cvar( "fcsshop_ap_team", "3" );
+	
+	g_iCvar[ DEAGLE_PRICE ] = register_cvar( "fcsshop_deagle_price", "80" );
+	g_iCvar[ DEAGLE_BACKPACK_AMMO ] = register_cvar( "fcsshop_deagle_ammo", "21" );
+	g_iCvar[ DEAGLE_TO ] = register_cvar( "fcsshop_deagle_team", "1" );
+	
+	g_iCvar[ SPEED_PRICE ] = register_cvar( "fcsshop_speed_price", "75" );
+	g_iCvar[ SPEED_AMOUNT ] = register_cvar( "fcsshop_speed_amount", "500" );
+	g_iCvar[ SPEED_DURATION ] = register_cvar( "fcsshop_speed_duration", "1" );
+	g_iCvar[ SPEED_TO ] = register_cvar( "fcsshop_speed_team", "2" );
+	
+	g_iCvar[ GRAVITY_PRICE ] = register_cvar( "fcsshop_gravity_price", "80" );
+	g_iCvar[ GRAVITY_AMOUNT ] = register_cvar( "fcsshop_gravity_amount", "300" );
+	g_iCvar[ GRAVITY_DURATION ] = register_cvar( "fcsshop_gravity_duration", "1" );
+	g_iCvar[ GRAVITY_TO ] = register_cvar( "fcsshop_gravity_team", "2" );
+	
+	register_clcmd( "say", "ClCmdSay" );
+	register_clcmd( "say_team", "ClCmdSay" );
+	
+	// register_clcmd( "say /depozit", "ClCmdSayDepozit" );
+	// register_clcmd( "say /deposit", "ClCmdSayDepozit" );
+	// register_clcmd( "say_team /depozit", "ClCmdSayDepozit" );
+	// register_clcmd( "say_team /deposit", "ClCmdSayDepozit" );
+	
+	// register_clcmd( "say /retrage", "ClCmdSayRetrage" );
+	// register_clcmd( "say /withdraw", "ClCmdSayRetrage" );
+	// register_clcmd( "say_team /retrage", "ClCmdSayRetrage" );
+	// register_clcmd( "say_team /withdraw", "ClCmdSayRetrage" );
+	
+	register_clcmd( "say shop", "ClCmdSayShop" );
+	register_clcmd( "say_team shop", "ClCmdSayShop" );
+	register_clcmd( "say /shop", "ClCmdSayShop" );
+	register_clcmd( "say_team /shop", "ClCmdSayShop" );
+	
+	register_clcmd( "fcs_credite", "ClCmdCredits" );
+	register_clcmd( "fcs_credits", "ClCmdCredits" );
+	
+	register_clcmd( "donate", "ClCmdFcsDonate" );
+	register_clcmd( "transfer", "ClCmdFcsDonate" );
+	
+	register_clcmd( "amx_give_credits", "ClCmdGiveCredits" );
+	register_clcmd( "amx_take_credits", "ClCmdTakeCredits" );
+	
+	RegisterHam( Ham_Spawn, "player", "ham_SpawnPlayerPost", true );
+	RegisterHam( Ham_Killed, "player", "ham_PlayerKilledPre",true );
+	RegisterHam( Ham_Player_ResetMaxSpeed, "player", "ham_PlayerResetMaxSpeedPre", true );
+	register_forward( FM_ClientUserInfoChanged, "Fwd_ClientUserInfoChanged" );
+	
+	register_event( "DeathMsg","ev_DeathMsg", "a" );
+	register_event( "SendAudio", "ev_SendAudioTerWin", "a", "2=%!MRAD_terwin" );
+	register_event( "SendAudio", "ev_SendAudioCtWin", "a", "2=%!MRAD_ctwin" );
+	
+	
+	iVault  =  nvault_open(  "FurienCreditsSystem"  );
+	if(  iVault  ==  INVALID_HANDLE  )
+		set_fail_state(  "nValut returned invalid handle!"  );
+	
+	set_task( 1.0, "task_PTRFunctions", TASK_pentru, _, _, "b", 0 );	
+	g_iMaxPlayers = get_maxplayers( );
+                     g_MsgSync    = CreateHudSyncObj ( );
+
+}
+
+public plugin_natives()
+{
+	
+	register_library( "fcs" );
+	register_native( "fcs_get_user_credits", "_fcs_get_user_credits" );
+	register_native( "fcs_set_user_credits", "_fcs_set_user_credits" );
+	
+}
+
+public _fcs_get_user_credits( iPlugin, iParams )
+{
+	return g_iUserCredits[  get_param( 1 )  ];
+}
+
+public _fcs_set_user_credits(  iPlugin, iParams  )
+{
+	new id = get_param( 1 );
+	g_iUserCredits[ id ] = max( 0, get_param( 2 ) );
+	SaveCredits( id );
+	return g_iUserCredits[ id ];
+}
+
+public TskShowCr ( id )
+{
+    if ( is_user_connected ( id ) )
+    {
+        set_hudmessage ( 0, 150, 0, 0.01, 0.89, 0, 6.0, 1.0 );
+        ShowSyncHudMsg ( id, g_MsgSync, "Credite: [%i]", fcs_get_user_credits ( id ) );
+    }
+	set_task( 1.0, "TskShowCr", id );
+}
+
+public client_putinserver( id )
+{
+	if( is_user_bot( id ) )
+		return PLUGIN_CONTINUE;
+	
+	get_user_name( id, g_szName[ id ], sizeof ( g_szName[] ) -1 );
+	LoadCredits( id );
+	set_task( 1.0, "TskShowCr", id );
+	
+	g_iUserTime[ id ] = 0;
+	g_iUserRetired[ id ] = 0;
+	g_bUserHas[ id ][ SPEED ] = false;
+	g_bUserHas[ id ][ GRAVITY ] = false;
+	
+	return PLUGIN_CONTINUE;
+	
+}
+
+public client_disconnect( id )
+{
+	if( is_user_bot( id ) )
+		return PLUGIN_CONTINUE;
+		
+	SaveCredits( id );
+	g_iUserRetired[ id ] = 0;
+	g_bUserHas[ id ][ SPEED ] = false;
+	g_bUserHas[ id ][ GRAVITY ] = false;
+	
+	return PLUGIN_CONTINUE;
+	
+}
+
+public ClCmdSay( id )
+{
+	static szArgs[192];
+	read_args( szArgs, sizeof ( szArgs ) -1 );
+	
+	if( !szArgs[ 0 ] )
+		return 0;
+	
+	new szCommand[ 15 ];
+	remove_quotes( szArgs[ 0 ] );
+	
+	if( equal( szArgs, "/credite", strlen( "/credite" ) )
+		|| equal( szArgs, "/credits", strlen( "/credits" ) ) )
+	{
+		replace( szArgs, sizeof ( szArgs ) -1, "/", "" );
+		formatex( szCommand, sizeof ( szCommand ) -1, "fcs_%s", szArgs );
+		client_cmd( id, szCommand );
+		return 1;
+	}
+	else if( equal( szArgs,  "/tt", strlen(  "/tt" ) )
+		|| equal( szArgs,  "/donate",  strlen(  "/donate" ) ) )
+	{
+		replace( szArgs, sizeof ( szArgs ) -1, "/", "" );
+		formatex( szCommand, sizeof ( szCommand ) -1, "%s", szArgs );
+		client_cmd( id, szCommand );
+		return 1;
+	}
+		
+	return 0;
+}
+
+public ClCmdCredits( id )
+{
+	if( !is_user_connected( id ) )
+		return 1;
+		
+	new szArg[ 32 ];
+    	read_argv( 1, szArg, sizeof ( szArg ) -1 );
+
+	if( equal( szArg, "" ) ) 
+	{
+		
+		ColorChat( id, RED, "^x04%s^x01 Ai^x03 %i^x01 credite.", g_szTag, g_iUserCredits[ id ] );
+		return 1;
+	}
+	
+    	new iPlayer = cmd_target( id, szArg, 8 );
+    	if( !iPlayer || !is_user_connected( iPlayer ) )
+	{
+		ColorChat( id, RED,"^x04%s^x01 Jucatorul specificat nu a fost gasit!", g_szTag, szArg );
+		return 1;
+	}
+
+	new szName[ 32 ];
+	get_user_name( iPlayer, szName, sizeof ( szName ) -1 );
+	ColorChat( id, RED,"^x04%s^x01 Jucatorul^x03 %s^x01 are^x03 %i^x01 credit%s", g_szTag, szName, g_iUserCredits[ iPlayer ], g_iUserCredits[ iPlayer ] == 1 ? "." : "e." );
+	
+	return 1;
+	
+}
+
+public ClCmdSayDepozit( id)
+{
+	
+	if( !is_user_connected( id ) )
+		return 1;
+		
+	new iTeam = get_user_team( id );
+	
+	if( 1 <= iTeam <= 2 )
+	{
+		new iMoney = cs_get_user_money( id );
+		if( iMoney >= 16000 )
+		{
+			
+			ColorChat( id, RED, "^x04%s^x01 Ai depozitat^x03 16000$^x01 si ai primit^x03 1^x01 credit.", g_szTag );
+			cs_set_user_money( id, iMoney - 16000 );
+			g_iUserCredits[ id ] += 1;
+			
+			SaveCredits( id );
+			return 1;
+		}
+		else
+		{
+			ColorChat( id, RED, "^x04%s^x01 Iti trebuie^x03 16000$^x01 pentru a putea depozita.", g_szTag );
+			return 1;
+		}
+	}
+	
+	return 1;
+
+}
+
+public ClCmdSayRetrage( id)
+{
+	
+	new iTeam = get_user_team( id );
+	
+	if( 1 <= iTeam <= 2 )
+	{
+		
+		if( g_iUserCredits[ id ] > 0 )
+		{
+			new iMaxRetrieve = get_pcvar_num( g_iCvarRetire );
+			if( iMaxRetrieve > 0 )
+			{
+				if( g_iUserRetired[ id ] >= iMaxRetrieve )
+				{
+					ColorChat( id, RED, "^x04%s^x01 Ai retras deja^x03 %i^x01 credit%s runda asta^x01.", g_szTag, iMaxRetrieve, iMaxRetrieve == 1 ? "" : "e" );
+					return PLUGIN_HANDLED;
+				}
+			}
+			
+			new iMoney = cs_get_user_money( id );
+			
+			ColorChat( id, RED, "^x04%s^x01 Ai retras^x03 1^x01 credit si, ai primi^x03 16000$^x01.", g_szTag );
+			cs_set_user_money( id, iMoney + 16000 );
+			
+			g_iUserCredits[ id ] -=1;
+			g_iUserRetired[ id ]++;
+			
+			SaveCredits( id );
+			
+			if( ( iMoney + 16000 ) > 16000 )
+			{
+				ColorChat( id, RED, "^x04%s^x03 ATENTIE^x01, ai^x03 %i$^x01 !", g_szTag, iMoney + 16000 );
+				ColorChat( id, RED, "^x04%s^x01 La spawn, vei pierde tot ce depaseste suma de^x03 16000$^x01.", g_szTag );
+				return 1;
+			}
+		}
+		else
+		{
+			ColorChat(id, RED, "^x04%s^x03 NU^x01 ai ce sa retragi, ai^x03 0^x01 credite.", g_szTag );
+			return 1;
+		}
+		
+	}
+	
+	return 1;
+
+}
+
+public ClCmdSayShop( id )
+{
+	
+	
+	if( get_pcvar_num( g_iCvar[ ENABLE ] ) == 0 )
+	{
+		ColorChat( id, RED, "^x04%s^x03 Comanda dezactivata de catre server!", g_szTag );
+		return PLUGIN_HANDLED;
+	}
+	
+	if( !is_user_alive( id ) )
+	{
+		ColorChat( id, RED, "^x04%s^x03 Trebuie sa fii in viata!", g_szTag );
+		return PLUGIN_HANDLED;
+	}
+	
+	
+	ShopMenu( id );
+	return PLUGIN_HANDLED;
+	
+}
+
+public ShopMenu( id )
+{
+	new szMenuName[ 64 ];
+	formatex( szMenuName, sizeof ( szMenuName ) -1, "%s^n^n\yCredite actuale: \r%i", g_szMenuName, g_iUserCredits[ id ] );
+	new iMenu = menu_create( szMenuName, "ShopMenuHandler" );	
+	new iCallBack  =  menu_makecallback( "CallBackShop" );
+	
+	new szBuffer[ 6 ][ 64 ], szBufferKey[ 5 ], iBufferKey = 1;
+	formatex( szBuffer[ 0 ], sizeof ( szBuffer[ ] ) -1, "\r[ \yFULL\r ] \wGrenades\y       [\r %iC\y ]", get_pcvar_num( g_iCvar[ NADES_PRICE ] ) );
+	formatex( szBuffer[ 1 ], sizeof ( szBuffer[ ] ) -1, "\r[ \y%i\r ] \wHP\y                [\r %iC\y ]", get_pcvar_num( g_iCvar[ HP_AMOUNT ] ), get_pcvar_num( g_iCvar[ HP_PRICE ] ) );
+	formatex( szBuffer[ 2 ], sizeof ( szBuffer[ ] ) -1, "\r[ \y%i\r ] \wAP\y                  [\r %iC\y ]", get_pcvar_num( g_iCvar[ AP_AMOUNT ] ), get_pcvar_num( g_iCvar[ AP_PRICE ] ) );
+	formatex( szBuffer[ 3 ], sizeof ( szBuffer[ ] ) -1, "\r[ \y%i AMMO\r ] \wDeagle\y    [\r %iC\y ]", get_pcvar_num( g_iCvar[ DEAGLE_BACKPACK_AMMO ] ), get_pcvar_num( g_iCvar[ DEAGLE_PRICE ] ) );
+	formatex( szBuffer[ 4 ], sizeof ( szBuffer[ ] ) -1, "\r[ \y%.1f\r ] \wSpeed\y          [\r %iC\y ]", float( get_pcvar_num( g_iCvar[ SPEED_AMOUNT ] ) ), get_pcvar_num( g_iCvar[ SPEED_PRICE ] ) );
+	formatex( szBuffer[ 5 ], sizeof ( szBuffer[ ] ) -1, "\r[ \y%i\r ] \wGravity\y            [\r %iC\y ]", get_pcvar_num( g_iCvar[ GRAVITY_AMOUNT ] ), get_pcvar_num( g_iCvar[ GRAVITY_PRICE ] ) );
+	
+	for( new i = 0; i < 6; i++ )
+	{
+		formatex( szBufferKey, sizeof ( szBufferKey ) -1, "%i", iBufferKey );
+		menu_additem( iMenu, szBuffer[ i ], szBufferKey, _, iCallBack );
+		
+		iBufferKey++;
+	}
+	
+	menu_setprop( iMenu, MPROP_EXITNAME, "\wIesire" );
+	
+	menu_display( id, iMenu, 0 );
+
+}
+
+/*=======================================================================================s=P=u=f=?*/
+
+public ShopMenuHandler( id, iMenu, iItem )
+{
+	if( iItem == MENU_EXIT )
+	{
+		menu_destroy( iMenu );
+		return 1PLUGIN_HANDLED;
+	}
+	
+	new data[ 6 ], iName[ 64 ];
+	new iaccess, callback;
+	
+	menu_item_getinfo( iMenu, iItem, iaccess, data, 5, iName, 63, callback );
+	
+	new key = str_to_num( data );
+	//new page = floatround( str_to_float( data ) / 7.0001, floatround_floor );
+	
+	menu_destroy( iMenu );
+	switch( key )
+	{
+		case 1:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ NADES_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			if( bUserHasAnyNade( id ) )
+			{
+				ColorChat( id, RED, "^x04%s^x03 Ai cel putin o grenada in mana, nu poti cumpara altele!", g_szTag );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 FULL Grenades^x01 pentru^x03 %i credite^x01 !", g_szTag, iNeededCredits );
+			
+			give_item( id, "weapon_hegrenade" );
+			give_item( id, "weapon_flashbang" );
+			give_item( id, "weapon_flashbang" );
+			give_item( id, "weapon_smokegrenade" );
+			
+		}
+		
+		case 2:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ HP_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			
+			new iHP = get_pcvar_num( g_iCvar[ HP_AMOUNT ] );
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 %i HP^x01 pentru^x03 %i credite^x01 !", g_szTag, iHP, iNeededCredits );
+			
+			set_user_health( id, get_user_health( id ) + iHP );
+			
+		}
+		
+		case 3:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ AP_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			
+			new iAP = get_pcvar_num( g_iCvar[ AP_AMOUNT ] );
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 %i AP^x01 pentru^x03 %i credite^x01 !", g_szTag, iAP, iNeededCredits );
+			
+			set_user_armor( id, get_user_armor( id ) + iAP );
+			
+		}
+		
+		case 4:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ DEAGLE_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			
+			new iAMMO = get_pcvar_num( g_iCvar[ DEAGLE_BACKPACK_AMMO ] );
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 %i AMMO Deagle^x01 pentru^x03 %i credite^x01 !", g_szTag, iAMMO, iNeededCredits );
+			
+			give_item( id, "weapon_deagle" );
+			cs_set_user_bpammo( id, CSW_DEAGLE, iAMMO );
+			
+		}
+		
+		case 5:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ SPEED_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			
+			new iSpeed = get_pcvar_num( g_iCvar[ SPEED_AMOUNT ] );
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 %.1f Speed^x01 pentru^x03 %i credite^x01 !", g_szTag, float( iSpeed ), iNeededCredits );
+			
+			g_bUserHas[ id ][ SPEED ] = true;
+			engfunc( EngFunc_SetClientMaxspeed, id, float( iSpeed )  );
+			set_pev( id,  pev_maxspeed, float( iSpeed ) );
+			
+			/*	SlowHack o_O
+			client_cmd( id, "cl_forwardspeed %0.1f;cl_sidespeed %0.1f;cl_backspeed %0.1f", float( iSpeed ), float( iSpeed ), float( iSpeed ) );
+			*/
+		}
+		
+		case 6:
+		{
+			new iNeededCredits;
+			iNeededCredits = get_pcvar_num( g_iCvar[ GRAVITY_PRICE ] );
+			
+			if( g_iUserCredits[ id ] < iNeededCredits )
+			{
+				ColorChat( id, RED, "^x04%s^x03 NU^x01 ai destule credite, iti mai trebuie^x03 %i credite^x01 !", g_szTag, iNeededCredits - g_iUserCredits[ id ] );
+				return PLUGIN_HANDLED;
+			}
+			
+			g_iUserCredits[ id ] -= iNeededCredits;
+			
+			new iGravity = get_pcvar_num( g_iCvar[ GRAVITY_AMOUNT ] );
+			ColorChat( id, RED, "^x04%s^x01 Ai cumparat^x03 %i Gravity^x01 pentru^x03 %i credite^x01 !", g_szTag, iGravity, iNeededCredits );
+			
+			set_user_gravity( id, float( iGravity ) * 0.00125 );
+			g_bUserHas[ id ][ GRAVITY ] = true;
+		}
+		
+	}
+	
+	return PLUGIN_CONTINUE;
+	
+}
+
+public CallBackShop( id, iMenu, iItem  )
+{
+	static _access, szInfo[ 4 ],  callback;
+	menu_item_getinfo( iMenu, iItem, _access, szInfo, sizeof ( szInfo ) -1, _, _, callback );
+	
+	//if( szInfo[ 0 ] == '0' )	return ITEM_ENABLED;
+	
+ 	if( szInfo[ 0 ] == '1' )
+	{
+		if( get_pcvar_num( g_iCvar[ NADES_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ NADES_TO ] ) )
+			return ITEM_ENABLED;
+	}
+	else if( szInfo[ 0 ] == '2' )
+	{
+		if( get_pcvar_num( g_iCvar[ HP_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ HP_TO ] ) )
+			return ITEM_ENABLED;
+	}
+	else if( szInfo[ 0 ] == '3' )
+	{
+		if( get_pcvar_num( g_iCvar[ AP_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ AP_TO ] ) )
+			return ITEM_ENABLED;
+	}
+	else if( szInfo[ 0 ] == '4' )
+	{
+		if( get_pcvar_num( g_iCvar[ DEAGLE_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ DEAGLE_TO] ) )
+			return ITEM_ENABLED;
+	}
+	else if( szInfo[ 0 ] == '5' )
+	{
+		if( get_pcvar_num( g_iCvar[ SPEED_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ SPEED_TO ] ) )
+			return ITEM_ENABLED;
+	}
+	
+	else if( szInfo[ 0 ] == '6' )
+	{
+		if( get_pcvar_num( g_iCvar[ GRAVITY_TO ] ) == 3 || fcs_get_user_team( id ) == get_pcvar_num( g_iCvar[ GRAVITY_TO ] ) )
+			return ITEM_ENABLED;
+	}
+	
+	return ITEM_DISABLED;
+}
+
+public ClCmdGiveCredits( id )
+{
+	
+	if( !( get_user_flags( id ) & read_flags( g_szGiveCreditsFlag ) ) )
+	{
+		client_cmd( id, "echo NU ai acces la aceasta comanda!" );
+		return 1;
+	}
+	
+	new szFirstArg[ 32 ], szSecondArg[ 10 ];
+	
+	read_argv( 1, szFirstArg, sizeof ( szFirstArg ) -1 );
+	read_argv( 2, szSecondArg, sizeof ( szSecondArg ) -1 );
+	
+	if( equal( szFirstArg, "" ) || equal( szSecondArg, "" ) )
+	{
+		client_cmd( id, "echo amx_give_credits < nume/ @ALL/ @T/ @CT > < credite >" );
+		return 1;
+	}
+	
+	new iPlayers[ 32 ];
+	new iPlayersNum;
+	
+	new iCredits = str_to_num( szSecondArg );
+	if( iCredits <= 0 )
+	{
+		client_cmd( id, "echo Valoare creditelor trebuie sa fie mai mare decat 0!" );
+		return 1;
+	}
+	
+	if( szFirstArg[ 0 ] == '@' )
+	{
+		
+		switch ( szFirstArg[ 1 ] )
+		{
+			case 'A':
+			{
+				if( equal( szFirstArg, "@ALL" ) )
+				{
+					
+					get_players( iPlayers, iPlayersNum, "ch" );
+					for( new i = 0; i < iPlayersNum ; i++ )
+						g_iUserCredits[ iPlayers[ i ] ] += iCredits;
+						
+					new szName[ 32 ];
+					get_user_name( id, szName, sizeof ( szName ) -1 );
+					ColorChat( 0, RED, "^x04^%s^x01 Adminul^x03 %s^x01 le-a dat^x03 %i^x01 credite tuturor jucatorilor!", g_szTag, szName, iCredits );
+					return 1;
+				}
+			}
+			
+			case 'T':
+			{
+				if( equal( szFirstArg, "@T" ) )
+				{
+					
+					get_players( iPlayers, iPlayersNum, "ceh", "TERRORIST" );
+					if( iPlayersNum == 0 )
+					{
+						client_cmd( id, "echo NU se afla niciun jucator in aceasta echipa!" );
+						return 1;
+					}
+					for( new i = 0; i < iPlayersNum ; i++ )
+						g_iUserCredits[ iPlayers[ i ] ] += iCredits;
+						
+					new szName[ 32 ];
+					get_user_name( id, szName, sizeof ( szName ) -1 );
+					ColorChat( 0, RED, "^x04^%s^x01 Adminul^x03 %s^x01 le-a dat^x03 %i^x01 credite jucatorilor de la^x03 TERO^x01!", g_szTag, szName, iCredits );
+					return 1;
+				}
+			}
+			
+			case 'C':
+			{
+				if( equal( szFirstArg, "@CT" ) )
+				{
+					
+					get_players( iPlayers, iPlayersNum, "ceh", "CT" );
+					if( iPlayersNum == 0 )
+					{
+						client_cmd( id, "echo NU se afla niciun jucator in aceasta echipa!" );
+						return 1;
+					}
+					for( new i = 0; i < iPlayersNum ; i++ )
+						g_iUserCredits[ iPlayers[ i ] ] += iCredits;
+						
+					new szName[ 32 ];
+					get_user_name( id, szName, sizeof ( szName ) -1 );
+					ColorChat( 0, RED, "^x04^%s^x01 Adminul^x03 %s^x01 le-a dat^x03 %i^x01 credite jucatorilor de la^x03 CT^x01!", g_szTag, szName, iCredits );
+					return 1;
+				}
+			}
+		}
+	}
+		
+	new iPlayer = cmd_target( id, szFirstArg, 8 );
+	if( !iPlayer )
+	{
+		client_cmd( id, "echo Jucatorul %s nu a fost gasit!", szFirstArg );
+		return 1;
+	}
+	
+	g_iUserCredits[ iPlayer ] += iCredits;
+	
+	new szName[ 32 ], _szName[ 32 ];
+	get_user_name( id, szName, sizeof ( szName ) -1 );
+	get_user_name( iPlayer, _szName, sizeof ( _szName ) -1 );
+	
+	ColorChat( 0, RED, "^x04%s^x01 Adminul^x03 %s^x01 i-a dat^x03 %i^x01 credite lui^x03 %s^x01.", g_szTag, szName, iCredits, _szName );
+	
+	return 1;
+	
+	
+}
+
+public ClCmdTakeCredits( id )
+{
+	
+	if( !( get_user_flags( id ) & read_flags( g_szGiveCreditsFlag ) ) )
+	{
+		client_cmd( id, "echo NU ai acces la aceasta comanda!" );
+		return 1;
+	}
+	
+	new szFirstArg[ 32 ], szSecondArg[ 10 ];
+	
+	read_argv( 1, szFirstArg, sizeof ( szFirstArg ) -1 );
+	read_argv( 2, szSecondArg, sizeof ( szSecondArg ) -1 );
+	
+	if( equal( szFirstArg, "" ) || equal( szSecondArg, "" ) )
+	{
+		client_cmd( id, "echo amx_take_credits < nume > < credite >" );
+		return 1;
+	}
+	
+	new iCredits = str_to_num( szSecondArg );
+	if( iCredits <= 0 )
+	{
+		client_cmd( id, "echo Valoare creditelor trebuie sa fie mai mare decat 0!" );
+		return 1;
+	}
+			
+	new iPlayer = cmd_target( id, szFirstArg, 8 );
+	if( !iPlayer )
+	{
+		client_cmd( id, "echo Jucatorul %s nu a fost gasit!", szFirstArg );
+		return 1;
+	}
+	
+	if( g_iUserCredits[ iPlayer ] < iCredits )
+	{
+		client_cmd( id, "echo Jucatorul %s nu are atatea credite!Are doar %i", szFirstArg, g_iUserCredits[ iPlayer ] );
+		return 1;
+	}
+	
+	g_iUserCredits[ iPlayer ] -= iCredits;
+	
+	new szName[ 32 ], _szName[ 32 ];
+	get_user_name( id, szName, sizeof ( szName ) -1 );
+	get_user_name( iPlayer, _szName, sizeof ( _szName ) -1 );
+	
+	ColorChat( 0, RED, "^x04%s^x01 Adminul^x03 %s^x01 i-a sters^x03 %i^x01 credite lui^x03 %s^x01.", g_szTag, szName, iCredits, _szName );
+	
+	return 1;
+	
+	
+}
+
+public ClCmdFcsDonate( id )
+{
+	if(  get_pcvar_num(  g_iCvarTSEnable  )  !=  1  )
+	{
+		ColorChat( id, RED, "^x04%s^x01 Comanda dezactivata de catre server!",  g_szTag  );
+		return PLUGIN_HANDLED;
+	}
+	
+	new szFirstArg[ 32 ], szSecondArg[ 10 ];
+	
+    	read_argv( 1, szFirstArg, sizeof ( szFirstArg ) -1 );
+	read_argv( 2, szSecondArg, sizeof ( szSecondArg ) -1 );
+	
+	if( equal( szFirstArg, "" ) || equal( szSecondArg, "" ) )
+	{
+		ColorChat( id, RED, "^x04%s^x01 Folosire:^x03 /donate^x01 <^x03 nume^x01 > <^x03 credite^x01 >.", g_szTag );
+		return 1;
+	}
+	
+	new iPlayer = cmd_target( id, szFirstArg, 8 );
+	
+	if( !iPlayer  )
+	{
+		ColorChat( id, RED, "^x04%s^x01 Acel jucator nu a fost gasit.", g_szTag );
+		return PLUGIN_HANDLED;
+	}
+	
+	//if( iPlayer == id )
+	//{
+	//	ColorChat(  id,  RED, "^x04%s^x01 Nu-ti poti transfera credite.", g_szTag );
+	//	return PLUGIN_HANDLED;
+	//}
+	
+	
+	new iCredits;
+	iCredits = str_to_num( szSecondArg );
+	
+	
+	if( iCredits <= 0 )
+	{
+		ColorChat( id, RED, "^x04%s^x01 Trebuie sa introduci o valoare mai mare de 0.", g_szTag );
+		return PLUGIN_HANDLED;
+	}
+	
+	new iMaxCredits = get_pcvar_num( g_iCvarTSMaxCredits );
+	if( iCredits > iMaxCredits )
+	{
+		ColorChat( id, RED, "^x04%s^x01 Poti transfera maxim^x03 %i^x01 credit%s o data!", g_szTag, iMaxCredits, iMaxCredits == 1 ? "" : "e" );
+		return PLUGIN_HANDLED;
+	}
+	
+	if( g_iUserCredits[ id ] <  iCredits  )
+	{
+		ColorChat(  id,  RED, "^x04%s^x01 Nu ai destule credite, ai doar^x03 %i credit%s^x01.",  g_szTag, g_iUserCredits[ id ], g_iUserCredits[ id ] == 1 ? "" : "e"  );
+		return 1;
+	}
+	
+	g_iUserCredits[ id ] -= iCredits;
+	g_iUserCredits[ iPlayer ] += iCredits;
+	
+	SaveCredits( id );
+	SaveCredits( iPlayer );
+	
+	new szFirstName[ 32 ], szSecondName[ 32 ];
+	
+	get_user_name( id, szFirstName, sizeof ( szFirstName )  -1 );
+	get_user_name( iPlayer, szSecondName, sizeof ( szSecondName )  -1 );
+	
+	ColorChat( 0, RED, "^x04%s^x03 %s^x01 i-a transferat^03 %i credit%s^x01 lui^x03 %s^x01 .", g_szTag, szFirstName, iCredits, iCredits == 1 ? "" : "e", szSecondName );
+	return PLUGIN_HANDLED;
+}
+
+public ham_SpawnPlayerPost( id )
+{
+	if( !is_user_alive( id ) )
+		return;
+		
+	g_iUserRetired[ id ] = 0;
+	
+	if( get_pcvar_num( g_iCvar[ SPEED_DURATION ] ) == 1 )
+	{
+		if( g_bUserHas[ id ][ SPEED ] )
+		{
+			new iSpeed = get_pcvar_num( g_iCvar[ SPEED_AMOUNT ] );
+			engfunc( EngFunc_SetClientMaxspeed, id, float( iSpeed )  );
+			set_pev( id,  pev_maxspeed, float( iSpeed ) );
+			
+			/*	SlowHack o_O
+			client_cmd( id, "cl_forwardspeed %0.1f;cl_sidespeed %0.1f;cl_backspeed %0.1f", float( iSpeed ), float( iSpeed ), float( iSpeed ) );
+			*/
+		}
+	}
+	else
+		g_bUserHas[ id ][ SPEED ] = false;
+		
+	if( get_pcvar_num( g_iCvar[ GRAVITY_DURATION ] ) == 1 )
+	{
+		if( g_bUserHas[ id ][ GRAVITY ] )
+			set_user_gravity( id, float( get_pcvar_num( g_iCvar[ GRAVITY_AMOUNT ] ) ) * 0.00125 );
+	}
+	else
+		g_bUserHas[ id ][ GRAVITY ] = false;
+			
+}
+
+public ham_PlayerKilledPre(  id  )
+{
+	g_bUserHas[ id ][ SPEED ] = false;
+	g_bUserHas[ id ][ GRAVITY ] = false;
+}
+
+public ham_PlayerResetMaxSpeedPre( id )
+{
+
+	if( is_user_alive( id )  /*&&  get_user_maxspeed(  id  )  !=  1.0*/  )
+	{
+		
+		if( g_bUserHas[ id ][ SPEED ] )
+		{
+	
+			static Float:flMaxSpeed;
+			flMaxSpeed = float( get_pcvar_num( g_iCvar[ SPEED_AMOUNT ] ) );
+			
+			engfunc( EngFunc_SetClientMaxspeed, id, flMaxSpeed  );
+			set_pev( id, pev_maxspeed, flMaxSpeed  );
+			
+		}
+		
+		
+		/*	SlowHack o_O
+			client_cmd(  id,  "cl_forwardspeed %0.1f;cl_sidespeed %0.1f;cl_backspeed %0.1f", flMaxSpeed, flMaxSpeed, flMaxSpeed );
+		*/
+	}
+}
+
+public Fwd_ClientUserInfoChanged( id, szBuffer )
+{
+	if ( !is_user_connected( id ) ) 
+		return FMRES_IGNORED;
+	
+	static szNewName[ 32 ];
+	
+	engfunc( EngFunc_InfoKeyValue, szBuffer, "name", szNewName, sizeof ( szNewName ) -1 );
+	
+	if ( equal( szNewName, g_szName[ id ] ) )
+		return FMRES_IGNORED;
+	
+	SaveCredits(  id  );
+	
+	ColorChat( id, RED, "^x04%s^x01 Tocmai ti-ai schimbat numele din^x03 %s^x01 in^x03 %s^x01 !", g_szTag, g_szName[ id ], szNewName );
+	ColorChat( id, RED, "^x04%s^x01 Am salvat^x03 %i^x01 credite pe numele^x03 %s^x01 !", g_szTag, g_iUserCredits[ id ], g_szName[ id ] );
+	
+	copy( g_szName[ id ], sizeof ( g_szName[] ) -1, szNewName );
+	LoadCredits( id );
+	
+	ColorChat( id, RED, "^x04%s^x01 Am incarcat^x03 %i^x01 credite de pe noul nume (^x03 %s^x01 ) !", g_szTag, g_iUserCredits[ id ], g_szName[ id ] );
+	
+	return FMRES_IGNORED;
+}
+
+
+public LoadCredits( id )
+{
+	static szData[ 256 ],  iTimestamp;
+	
+	if(  nvault_lookup( iVault, g_szName[ id ], szData, sizeof ( szData ) -1, iTimestamp ) )
+	{
+		static szCredits[ 15 ];
+		parse( szData, szCredits, sizeof ( szCredits ) -1 );
+		g_iUserCredits[ id ] = str_to_num( szCredits );
+		return;
+	}
+	else
+	{
+		g_iUserCredits[ id ] = get_pcvar_num( g_iCvarEntry );
+	}
+	
+}
+
+
+public SaveCredits(  id  )
+{
+	
+	static szData[ 256 ];
+	formatex( szData, sizeof ( szData ) -1, "%i", g_iUserCredits[ id ] );
+	
+	nvault_set( iVault, g_szName[ id ], szData );
+}
+
+
+public task_PTRFunctions( )
+{
+	if( get_pcvar_num( g_iCvarPTREnable ) != 1 )
+		return;
+		
+	static iPlayers[ 32 ];
+	static iPlayersNum;
+	
+	get_players( iPlayers, iPlayersNum, "ch" );
+	if( !iPlayersNum )
+		return;
+	
+	static id, i;
+	for( i = 0; i < iPlayersNum; i++ )
+	{
+		id = iPlayers[ i ];
+		
+		g_iUserTime[ id ]++;
+		static iTime;
+		iTime = get_pcvar_num( g_iCvarPTRMinutes ) ;
+		
+		if( g_iUserTime[ id ] >= iTime * 60 )
+		{
+			g_iUserTime[ id ] -= iTime * 60;
+			
+			static iCredits;
+			iCredits = get_pcvar_num( g_iCvarPTRCredits );
+			
+			g_iUserCredits[ id ] += iCredits;
+			ColorChat( id, RED, "^x04%s^x01 Ai primit^x03 %i^x01 credite pentru ca ai jucat^x03 %i^x01 minute pe^x04 Dr.CsGamers.Ro^x01 !",
+				g_szTag, iCredits, iTime );
+				
+			SaveCredits( id );
+				
+		}
+	}
+	
+}
+
+public ev_DeathMsg( )
+{
+	if( get_pcvar_num( g_iCvarKREnable ) != 1 )
+		return;
+	new iKiller = read_data( 1 );
+	if( iKiller == read_data( 2 ) )
+		return;
+		
+	new iCredits = get_pcvar_num( g_iCvarKRCredits );
+	
+	if( read_data( 3 ) )
+		iCredits += get_pcvar_num( g_iCvarKRHSCredits );
+		
+	g_iUserCredits[ iKiller ] += iCredits;
+	SaveCredits( iKiller );
+	
+}
+
+public ev_SendAudioTerWin( )
+{
+	static iCvarEnable, iCvarFurienReward;
+	iCvarEnable = get_pcvar_num( g_iCvarWTREnable );
+	iCvarFurienReward = get_pcvar_num( g_iCvarWTRFurien );
+	
+	if( iCvarEnable != 1 || iCvarFurienReward == 0 )
+		return;
+		
+	GiveTeamReward( FCS_TEAM_FURIEN, iCvarFurienReward );
+	
+}
+
+
+public ev_SendAudioCtWin( )
+{
+	
+	static iCvarEnable, iCvarAntiReward;
+	iCvarEnable = get_pcvar_num( g_iCvarWTREnable );
+	iCvarAntiReward = get_pcvar_num( g_iCvarWTRAnti );
+	
+	if( iCvarEnable != 1 || iCvarAntiReward == 0 )
+		return;
+		
+	GiveTeamReward( FCS_TEAM_ANTIFURIEN, iCvarAntiReward );
+}
+
+public GiveTeamReward( const CsTeams:iTeam, iCredits )
+{
+	
+	for(  new id = 1;  id <= g_iMaxPlayers;  id++   )
+	{
+		if( cs_get_user_team( id ) == iTeam )
+		{
+			ColorChat( id, RED, "^x04%s^x01 Ai primit^x03 %i^x01 credit%s pentru castigarea rundei!", g_szTag, iCredits, iCredits == 1 ? "" : "e" );
+			g_iUserCredits[ id ] += iCredits;
+			SaveCredits( id );
+		}
+	}
+}
+
+public plugin_end( )
+{
+	new iDays = get_pcvar_num( g_iCvarPruneDays );
+	if( iDays > 0 )
+	{
+		nvault_prune( iVault, 0, get_systime( ) - ( iDays * ONE_DAY_IN_SECONDS ) );
+	}
+	
+	nvault_close( iVault );
+}
+
+stock bool:bUserHasAnyNade( id )
+{
+	
+	if( user_has_weapon( id, CSW_HEGRENADE ) || user_has_weapon( id, CSW_FLASHBANG )
+		|| user_has_weapon( id, CSW_SMOKEGRENADE ) )
+		return true;
+		
+	return false;
+	
+}
+
+stock fcs_get_user_team( id )
+{
+	new iTeam = -1;
+	if( cs_get_user_team( id ) == CS_TEAM_T )	iTeam = 1;
+	else if( cs_get_user_team( id ) == CS_TEAM_CT )	iTeam = 2;
+	
+	return iTeam;
+}
+
+ColorChat(  id, Color:iType, const msg[  ], { Float, Sql, Result, _}:...  )
+{
+	
+	// Daca nu se afla nici un jucator pe server oprim TOT. Altfel dam de erori..
+	if( !get_playersnum( ) ) return;
+	
+	new szMessage[ 256 ];
+
+	switch( iType )
+	{
+		 // Culoarea care o are jucatorul setata in cvar-ul scr_concolor.
+		case NORMAL:	szMessage[ 0 ] = 0x01;
+		
+		// Culoare Verde.
+		case GREEN:	szMessage[ 0 ] = 0x04;
+		
+		// Alb, Rosu, Albastru.
+		default: 	szMessage[ 0 ] = 0x03;
+	}
+
+	vformat(  szMessage[ 1 ], 251, msg, 4  );
+
+	// Ne asiguram ca mesajul nu este mai lung de 192 de caractere.Altfel pica server-ul.
+	szMessage[ 192 ] = '^0';
+	
+
+	new iTeam, iColorChange, iPlayerIndex, MSG_Type;
+	
+	if( id )
+	{
+		MSG_Type  =  MSG_ONE_UNRELIABLE;
+		iPlayerIndex  =  id;
+	}
+	else
+	{
+		iPlayerIndex  =  CC_FindPlayer(  );
+		MSG_Type = MSG_ALL;
+	}
+	
+	iTeam  =  get_user_team( iPlayerIndex );
+	iColorChange  =  CC_ColorSelection(  iPlayerIndex,  MSG_Type, iType);
+
+	CC_ShowColorMessage(  iPlayerIndex, MSG_Type, szMessage  );
+		
+	if(  iColorChange  )	CC_Team_Info(  iPlayerIndex, MSG_Type,  TeamName[ iTeam ]  );
+
+}
+
+CC_ShowColorMessage(  id, const iType, const szMessage[  ]  )
+{
+	
+	static bool:bSayTextUsed;
+	static iMsgSayText;
+	
+	if(  !bSayTextUsed  )
+	{
+		iMsgSayText  =  get_user_msgid( "SayText" );
+		bSayTextUsed  =  true;
+	}
+	
+	message_begin( iType, iMsgSayText, _, id  );
+	write_byte(  id  );		
+	write_string(  szMessage  );
+	message_end(  );
+}
+
+CC_Team_Info( id, const iType, const szTeam[  ] )
+{
+	static bool:bTeamInfoUsed;
+	static iMsgTeamInfo;
+	if(  !bTeamInfoUsed  )
+	{
+		iMsgTeamInfo  =  get_user_msgid( "TeamInfo" );
+		bTeamInfoUsed  =  true;
+	}
+	
+	message_begin( iType, iMsgTeamInfo, _, id  );
+	write_byte(  id  );
+	write_string(  szTeam  );
+	message_end(  );
+
+	return 1;
+}
+
+CC_ColorSelection(  id, const iType, Color:iColorType)
+{
+	switch(  iColorType  )
+	{
+		
+		case RED:	return CC_Team_Info(  id, iType, TeamName[ 1 ]  );
+		case BLUE:	return CC_Team_Info(  id, iType, TeamName[ 2 ]  );
+		case GREY:	return CC_Team_Info(  id, iType, TeamName[ 0 ]  );
+
+	}
+
+	return 0;
+}
+
+CC_FindPlayer(  )
+{
+	new iMaxPlayers  =  get_maxplayers(  );
+	
+	for( new i = 1; i <= iMaxPlayers; i++ )
+		if(  is_user_connected( i )  )
+			return i;
+	
+	return -1;
+}

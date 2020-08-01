@@ -1,0 +1,333 @@
+#include <amxmodx>
+#include <engine>
+#include <fakemeta>
+#include <cstrike>
+
+native fcs_get_user_credits(client);
+native fcs_set_user_credits(client, credits);
+
+#define P "CheckPoints_by_BlackSmoke"
+#define V "0.7"
+#define A "BlackSmoke"
+#define ClassName "info_checkpoint" 
+#define stn(%1) str_to_num(%1)
+#define MaxCheckOnTheMap 1 
+#define MoneyOneCheck 0 
+#define MoneyNextCheck 0 
+#define MoneyFinishCheck 5 
+
+new bool:bTouchPlayerCheck[33][512]
+new iNumCheckRoundPl[33], bool:LastCheck, bool:bOffCheck
+new BeaconSprite
+new Float:fTimeStartRound[33]
+
+new szFile[127], OriginFile[MaxCheckOnTheMap][512]
+
+new const szSoundCheck[3][] = 
+{
+	"Checkpoint/cp.wav",
+	"Checkpoint/cp.wav",
+	"Checkpoint/cp.wav"
+}
+
+new const szModelCheck[6][] = 
+{
+	"models/Checkpoint/Blue.mdl",
+	"models/Checkpoint/Gray.mdl",
+	"models/Checkpoint/Green.mdl",
+	"models/Checkpoint/Red.mdl",
+	"models/Checkpoint/Yellow.mdl",
+	"models/Checkpoint/Purple.mdl"
+}
+new const szColorCheck[6][] = {/*Albastru*/"0 0 255",/*Gri*/"100 100 100",/*Verde*/"0 255 0",/*Rosu*/"255 0 0",/*Galben*/"255 255 0",/*Purpuriu*/"255 0 255"}
+
+public plugin_init()
+{
+	register_plugin(P,V,A)
+	register_touch(ClassName, "player", "TouchTarget")
+	register_think(ClassName, "FwdThinkCheck")
+	register_think("info_checkpoint_finish", "FwdThinkCheck")
+	register_touch("info_checkpoint_finish", "player", "TouchTargetFinish")
+	register_clcmd("cp_menu", "MenuCheck")
+	register_event("HLTV", "logevent_round_start", "a", "1=0", "2=0")
+	register_menucmd(register_menuid("MenuCheckPointsAdd"), 1023, "ActionMenuCheckPointsAdd")
+}
+
+public MenuCheck(id)
+{
+	if(!(get_user_flags(id) & ADMIN_RCON))
+	{
+		client_print(id, print_console, "Nu ai acces. ~%s~", P)
+		return PLUGIN_HANDLED
+	}
+	new szMenu[1024], iLen, ikey = MENU_KEY_1|MENU_KEY_2|MENU_KEY_3|MENU_KEY_4|MENU_KEY_0
+	iLen = format(szMenu[iLen], charsmax(szMenu)-iLen, "\r[ \dDeathrun CsGamers\r ] \yMeniu Timer^n\yCP adaugate: \r%d \w| \yTimer Final: \r%spus^n^n", GetNumEntity(ClassName), LastCheck ? "" : "Nu e ")
+	iLen += format(szMenu[iLen], charsmax(szMenu)-iLen, "\y1. \dAdauga \d[\yRamase\d: \r%d\d]^n", (MaxCheckOnTheMap - GetNumEntity(ClassName)))
+	iLen += format(szMenu[iLen], charsmax(szMenu)-iLen, "\y2. \wAdauga Timer Final \d[\yRamase\d: \r%d\d]^n", LastCheck ? 0 : 1)
+	iLen += format(szMenu[iLen], charsmax(szMenu)-iLen, "\y3. \wEliminare Timer Final^n^n")
+	iLen += format(szMenu[iLen], charsmax(szMenu)-iLen, "\y4. \wCP \d[\y%s\d]^n", bOffCheck ? "Dezactivate" : "Activate")
+	
+	iLen += format(szMenu[iLen], charsmax(szMenu)-iLen, "^n\r0. \wIesire^n")
+	
+	show_menu(id, ikey, szMenu, -1, "MenuCheckPointsAdd")
+	return PLUGIN_HANDLED
+}
+
+public ActionMenuCheckPointsAdd(id, key)
+{
+	switch(key)
+	{
+		case 0: 
+		{
+			if(GetNumEntity(ClassName) >= 15)
+			{
+				Color_Print(id, "!teamAi pus !gnumarul maxim !teamde checkpointuri.")
+				return PLUGIN_CONTINUE
+			}
+			new iOrigin[3], Float:fOrigin[3]
+			get_user_origin(id, iOrigin, 3)
+			IVecFVec(iOrigin, fOrigin)
+			fOrigin[2] += 60.0
+			AddCheck(0, fOrigin)
+			
+			MenuCheck(id)
+		}
+		case 1:
+		{
+			if(LastCheck)
+			{
+				return PLUGIN_CONTINUE
+			}
+			new iOrigin[3], Float:fOrigin[3]
+			get_user_origin(id, iOrigin, 3)
+			IVecFVec(iOrigin, fOrigin)
+			fOrigin[2] += 60.0
+			AddCheck(1, fOrigin)
+			
+			MenuCheck(id)
+		}
+		case 2:
+		{
+			remove_entity_name(ClassName)
+			remove_entity_name("info_checkpoint_finish")
+			LastCheck = false
+			delete_file(szFile)
+			MenuCheck(id)
+		}
+		case 3:
+		{
+			bOffCheck = bOffCheck ? false : true
+			MenuCheck(id)
+		}
+	}
+	return PLUGIN_HANDLED
+}
+
+public logevent_round_start()
+{
+	new iPlayers[32], iNum, q[33]
+	get_players(iPlayers, iNum)
+	for(new i; i < iNum; i++)
+	{
+		fTimeStartRound[iPlayers[i]] = get_gametime()
+		iNumCheckRoundPl[iPlayers[i]] = 0
+		while(q[iPlayers[i]] < 510)
+		{
+			q[iPlayers[i]]++
+			bTouchPlayerCheck[iPlayers[i]][q[iPlayers[i]]] = false
+		}
+	}
+}
+
+public TouchTarget(ent,id)
+{
+	if(!is_valid_ent(ent) || !is_user_connected(id))
+		return PLUGIN_CONTINUE
+		
+	if(bTouchPlayerCheck[id][ent])
+		return PLUGIN_CONTINUE
+	
+	iNumCheckRoundPl[id]++
+	Color_Print(id, "!teamAi trecut de checkpointul #!g%d !team| !yPremiu: !g+ $%d", iNumCheckRoundPl[id], (MoneyOneCheck + (MoneyNextCheck*(iNumCheckRoundPl[id]-1))))
+	cs_set_user_money(id, cs_get_user_money(id) + (MoneyOneCheck + (MoneyNextCheck*(iNumCheckRoundPl[id]-1))))
+	bTouchPlayerCheck[id][ent] = true
+	client_cmd(id, "spk ^"%s^"", szSoundCheck[random_num(0,sizeof szSoundCheck - 1)])
+	
+	return PLUGIN_CONTINUE
+}
+
+public TouchTargetFinish(ent,id)
+{
+	if(!is_valid_ent(ent) || !is_user_connected(id))
+		return PLUGIN_CONTINUE
+		
+	if(bTouchPlayerCheck[id][ent])
+		return PLUGIN_CONTINUE
+	
+	new szName[32]
+	get_user_name(id, szName, charsmax(szName))
+	
+	Color_Print(id, "!yAi terminat !gharta cu succes !y| | Premiu: !g%d !teamCredite", MoneyFinishCheck)
+	Color_Print(0, "!yJucatorul [!team%s!y] a terminat mapa in: !y[!g%d!y:!g%02d!y]", szName, floatround(get_gametime() - fTimeStartRound[id]) / 60, floatround(get_gametime() - fTimeStartRound[id]) % 60)
+	fcs_set_user_credits(id, fcs_get_user_credits(id) + MoneyFinishCheck)
+	bTouchPlayerCheck[id][ent] = true
+	client_cmd(id, "spk ^"%s^"", szSoundCheck[random_num(0,sizeof szSoundCheck - 1)])
+	
+	return PLUGIN_CONTINUE
+}
+
+public plugin_precache()
+{
+	for(new i; i < sizeof szModelCheck; i++)
+		precache_model(szModelCheck[i])
+	for(new y; y < sizeof szSoundCheck; y++)
+		precache_sound(szSoundCheck[y])
+		
+	BeaconSprite = precache_model("sprites/shockwave.spr")
+	
+	new CheckFolder[127]
+	format(CheckFolder, charsmax(CheckFolder), "addons/amxmodx/configs/CheckPoint")
+	if(!dir_exists(CheckFolder))
+	mkdir(CheckFolder)
+	
+	new Map[32]
+	get_mapname(Map, 31)
+	format(szFile, charsmax(szFile), "%s/%s.ini", CheckFolder,Map)
+	new q, Len, iNumString,p[5][32], Float:origin[3]
+	if(file_exists(szFile))
+	{
+		while(q < MaxCheckOnTheMap && read_file(szFile, q ,OriginFile[iNumString], 511, Len))
+		{
+			q++
+			if(OriginFile[iNumString][0] == ';' || Len == 0 || !OriginFile[iNumString][0])
+			{
+				continue
+			}
+			parse(OriginFile[iNumString], p[1], 31,p[2], 31,p[3], 31,p[4],31)
+			origin[0] = str_to_float(p[1])
+			origin[1] = str_to_float(p[2])
+			origin[2] = str_to_float(p[3])
+			AddCheck(str_to_num(p[4]), origin, 0)
+			iNumString++
+		}
+	}
+}	
+
+public FwdThinkCheck(ent)
+{
+	if(!is_valid_ent(ent))
+		return;
+	
+	if(!bOffCheck)
+		UTIL_PlayAnimation(ent, 50)
+	else
+		set_rendering(ent)
+		
+	entity_set_float(ent, EV_FL_nextthink, get_gametime() + 1.90)
+	entity_set_int(ent, EV_INT_solid, bOffCheck ? SOLID_NOT : SOLID_TRIGGER)
+}
+
+stock AddCheck(type=0,Float:fOrigin[3]={0.0,0.0,0.0},save = 1)
+{
+	static iNumber
+	if(save)
+	{
+		new szSave[512]
+		format(szSave, 511, "%f %f %f %d", fOrigin[0], fOrigin[1], fOrigin[2], type)
+		write_file(szFile, szSave)
+	}
+	if(type)
+		LastCheck = true
+	
+	iNumber++	
+	new iEnt, rnd = random_num(0,sizeof szModelCheck - 1),p[4][32]
+	iEnt = create_entity("info_target")
+	parse(szColorCheck[rnd], p[1],5,p[2],5,p[3],5)
+	if(is_valid_ent(iEnt))
+	{
+		entity_set_string(iEnt, EV_SZ_classname, type ? "info_checkpoint_finish" : ClassName)
+		entity_set_float(iEnt, EV_FL_nextthink, get_gametime() + 0.1)
+		entity_set_origin(iEnt, fOrigin)
+		DispatchSpawn(iEnt)
+		entity_set_model(iEnt, szModelCheck[rnd])
+		entity_set_int(iEnt, EV_INT_solid, SOLID_TRIGGER)
+		entity_set_size(iEnt, Float:{ -40.0, -40.0, -40.0 },  Float:{ 40.0, 40.0, 40.0 }) 
+	}
+}
+
+stock UTIL_PlayAnimation( const entity, const sequence, const Float:framerate = 1.0 )
+{
+	entity_set_float(entity, EV_FL_animtime, get_gametime());
+	entity_set_float(entity, EV_FL_framerate, framerate);
+	entity_set_float(entity, EV_FL_frame, 0.0);
+	entity_set_int(entity, EV_INT_sequence, sequence);
+	
+	new Float:origin[3], c[4][6], szModel[127]
+	entity_get_string(entity, EV_SZ_model, szModel, charsmax(szModel))
+	for(new i; i < sizeof szModelCheck; i++)
+	{
+		if(equal(szModel, szModelCheck[i]))
+		{
+			parse(szColorCheck[i], c[1],5,c[2],5,c[3],5)
+			break;
+		}
+	}
+	entity_get_vector(entity, EV_VEC_origin, origin)
+	origin[2] -= 50.0
+	engfunc(EngFunc_MessageBegin, MSG_BROADCAST, SVC_TEMPENTITY, origin, 0) 
+	write_byte(TE_BEAMCYLINDER)
+	engfunc(EngFunc_WriteCoord, origin[0]) //start x
+	engfunc(EngFunc_WriteCoord, origin[1]) //start y
+	engfunc(EngFunc_WriteCoord, origin[2]) //start z
+	engfunc(EngFunc_WriteCoord, origin[0]+50) //end x
+	engfunc(EngFunc_WriteCoord, origin[1]) //end y
+	engfunc(EngFunc_WriteCoord, origin[2]+135) //end z
+	write_short(BeaconSprite)
+	write_byte(0)
+	write_byte(1)
+	write_byte(6)
+	write_byte(1)  //hight
+	write_byte(1) 
+	write_byte(stn(c[1])) //red
+	write_byte(stn(c[2])) //green
+	write_byte(stn(c[3])) //blue
+	write_byte(255)
+	write_byte(0)
+	message_end()
+}
+
+stock Color_Print(const id, const input[], any:...)
+{
+	new count = 1, players[32]
+	static msg[191]
+	new pr[32]
+	format(pr,31,P), pr[11] = '^0'
+	vformat(msg, 190, input, 3)
+	format(msg, sizeof(msg), "^1[^4Timer^1] %s",msg)
+	replace_all(msg, 190, "!g", "^4") // Green Color
+	replace_all(msg, 190, "!y", "^1") // Default Color
+	replace_all(msg, 190, "!team", "^3") // Team Color
+	
+	if (id) players[0] = id; else get_players(players, count, "ch")
+	{
+		for (new i = 0; i < count; i++)
+		{
+			if (is_user_connected(players[i]))
+			{
+				message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, players[i])
+				write_byte(players[i]);
+				write_string(msg); 
+				message_end();
+			}
+		}
+	}
+}
+
+stock GetNumEntity(const class[])
+{
+	new iEnt, iNum
+	while((iEnt = find_ent_by_class(iEnt, class)))
+		iNum++
+	
+	return iNum
+}

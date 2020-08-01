@@ -1,0 +1,525 @@
+#include <amxmodx>
+#include <amxmisc>
+#include <engine> 
+#include < hamsandwich >
+#include <vault>
+#include <fun>
+#include <fakemeta>
+
+#define PLUGIN "Knife Mod"
+#define VERSION "2.0" 
+#define AUTHOR "FReeMan & CaNiBaL"
+
+#define TASK_INTERVAL 4.0  
+#define MAX_HEALTH 255 
+
+#pragma tabsize 0
+
+new  knife_grav[33]
+
+new knife_model[33] 
+new g_Menu
+new grav_knife[33]
+
+new CVAR_HIGHSPEED
+new CVAR_LOWSPEED
+new CVAR_MINSPEED
+new CVAR_LOWGRAV
+new CVAR_NORMGRAV
+new CVAR_HEALTH_ADD
+new CVAR_HEALTH_MAX
+new CVAR_DAMAGE 
+
+new cvar_knife
+
+public plugin_init() { 
+	
+	register_plugin(PLUGIN, VERSION, AUTHOR) 
+	
+	register_event("CurWeapon","CurWeapon","be","1=1") 
+	register_event( "Damage", "event_damage", "be" )
+	
+	g_Menu = register_menuid("Knife Mod")
+	register_menucmd(g_Menu, 1023, "knifemenu")
+	register_forward(FM_EmitSound, "sound_emit")
+	
+	register_clcmd("say /knife", "display_knife")
+	register_clcmd("knifes", "display_knife")
+	
+	CVAR_HIGHSPEED = register_cvar("km_highspeed","340")
+	CVAR_LOWSPEED = register_cvar("km_lowspeed","250")
+	CVAR_MINSPEED = register_cvar("km_lowspeed","230")
+	CVAR_HEALTH_ADD = register_cvar("km_addhealth", "5")
+	CVAR_DAMAGE = register_cvar("km_damage", "4")
+	CVAR_HEALTH_MAX = register_cvar("km_maxhealth", "100")
+	CVAR_LOWGRAV = register_cvar("km_lowgravity" , "550")
+	CVAR_NORMGRAV = get_cvar_pointer("sv_gravity")
+
+	cvar_knife = register_cvar("knife_enable","1")
+}
+public sound_emit(id, channel, sample[])
+{
+	if(is_user_alive(id) )
+	{
+	if (sample[8] == 'k' && sample[9] == 'n' && sample[10] == 'i')
+	{
+		if(knife_model[id] == 0)
+		return FMRES_IGNORED
+		if (sample[14] == 'h')
+		{
+				if (sample[17] == 'w')
+				{
+				if(knife_model[id] == 5)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/3.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 4)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife4/3.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 2)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife2/3.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 3)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife3/3.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 1)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/3.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				}
+				else
+				{
+				if(knife_model[id] == 5)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/1.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 4)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife4/1.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 2)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife2/1.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 3)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife3/1.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 1)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/1.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				}
+
+		}
+		else 
+		{
+				if (sample[15] == 'l')
+				{
+				if(knife_model[id] == 5)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/4.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 4)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife4/4.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 2)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife2/4.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 3)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife3/4.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 1)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/4.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				}
+				else if(sample[17] == 'b')
+				{
+				if(knife_model[id] == 5)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/2.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 4)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife4/2.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 2)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife2/2.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 3)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife3/2.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				if(knife_model[id] == 1)
+				emit_sound(id, CHAN_WEAPON, "weapons/knife_sound/knife1/2.wav", random_float(0.5, 1.0), ATTN_NORM, 0, PITCH_NORM)
+				}
+		}
+		return FMRES_SUPERCEDE
+	}
+	
+	}
+	return FMRES_IGNORED
+}
+
+public plugin_natives()
+{
+   register_library("knife")
+   register_native("knife_grav", "_grav_knife", 1)
+}
+
+public _grav_knife(id, num)
+knife_grav[id] = num
+	
+public plugin_precache() { 
+	precache_model("models/knife-mod/v_gravity_new1.mdl") 
+	precache_model("models/knife-mod/p_gravity_new1.mdl") 
+	precache_model("models/knife-mod/v_hide_fps.mdl")
+	precache_model("models/knife-mod/p_knife_vip.mdl")
+	precache_model("models/knife-mod/v_tixon.mdl")
+	precache_model("models/knife-mod/p_tixon.mdl")
+	precache_model("models/knife-mod/v_crowbars.mdl")
+	precache_model("models/knife-mod/p_crowbars.mdl")
+	precache_model("models/knife-mod/v_1.mdl")
+	precache_model("models/knife-mod/p_1.mdl")
+	precache_model("models/v_default_fps.mdl") 
+	precache_sound("weapons/knife_sound/knife1/4.wav")
+	precache_sound("weapons/knife_sound/knife2/4.wav")
+	precache_sound("weapons/knife_sound/knife3/4.wav")
+	precache_sound("weapons/knife_sound/knife4/4.wav")
+	precache_sound("weapons/knife_sound/current4.wav")
+	precache_sound("weapons/knife_sound/current3.wav")
+	precache_sound("weapons/knife_sound/current1.wav")
+	precache_sound("weapons/knife_sound/knife1/1.wav")
+	precache_sound("weapons/knife_sound/knife1/2.wav")
+	precache_sound("weapons/knife_sound/knife1/3.wav")
+	precache_sound("weapons/knife_sound/knife2/1.wav")
+	precache_sound("weapons/knife_sound/knife2/2.wav")
+	precache_sound("weapons/knife_sound/knife2/3.wav")
+	precache_sound("weapons/knife_sound/knife3/1.wav")
+	precache_sound("weapons/knife_sound/knife3/2.wav")
+	precache_sound("weapons/knife_sound/knife3/3.wav")
+	precache_sound("weapons/knife_sound/knife4/1.wav")
+	precache_sound("weapons/knife_sound/knife4/2.wav")
+	precache_sound("weapons/knife_sound/knife4/3.wav")
+
+} 
+
+public Hook_WeaponList( iPlayer )
+{
+	engclient_cmd( iPlayer, "weapon_knife" )
+	return PLUGIN_HANDLED
+}
+
+public display_knife(id) 
+{
+	if(!(get_pcvar_num(cvar_knife)))
+	return PLUGIN_CONTINUE
+
+	new menuBody[512]
+	add(menuBody, 511, "\r[\dDeathrun CsGamers\r]\y Meniu Knife\w:^n^n")
+	if(get_user_flags(id) & ADMIN_LEVEL_H)
+	{
+		add(menuBody, 511, "\r1. \yKnife Super VIP \d(\rVIP ONLY\d)\w^n")
+	}
+	else
+	{
+		add(menuBody, 511, "\r1. \dKnife Super VIP \d(\rnu ai vip\d)\w^n")
+	}
+	add(menuBody, 511, "\r2. \wKnife Bak \d(\rNo Footsteps\d)\w^n")
+	add(menuBody, 511, "\r3. \wKnife Pocket \r(High Speed\d)\w^n")
+	add(menuBody, 511, "\r4. \wKnife Butchet \d(\rLow Gravity\d)\w^n")
+	add(menuBody, 511, "\r5. \wKnife Default \d(\rRegenerare HP \y+\d)\w^n")
+	add(menuBody, 511, "\r6. \wKnife Machete \d(\rMore Damage/Low Speed\d)\w^n^n")
+
+	add(menuBody, 511, "\r0. \wIesire din meniu^n")
+
+	new keys = ( 1<<0 | 1<<1 | 1<<2 | 1<<3 | 1<<4 | 1<<5 |1<<9 )
+	show_menu(id, keys, menuBody, -1, "Knife Mod")
+	return PLUGIN_HANDLED
+}
+
+public knifemenu(id, key) 
+{
+	switch(key) 
+	{
+		case 0: 
+		{
+			if(get_user_flags(id) & ADMIN_LEVEL_H)
+			{
+				SetKnife(id , 4)
+				display_knife(id)
+			}
+			else
+			{
+				display_knife(id)
+				return PLUGIN_HANDLED
+			}
+		}
+		case 1: 
+		{
+				SetKnife(id , 2)
+				display_knife(id)
+		}
+		case 2: 
+		{
+				SetKnife(id , 3)
+				display_knife(id)
+		}
+		case 3: 
+		{
+				SetKnife(id , 1)
+				display_knife(id)
+		}
+		case 4: 
+		{
+				SetKnife(id , 0)
+				display_knife(id)
+		}
+		case 5:
+		{
+				SetKnife(id, 5)
+				display_knife(id)
+		}
+		default: return PLUGIN_HANDLED
+	}
+	SaveData(id)
+
+	if( get_user_weapon ( id ) != CSW_KNIFE ) return PLUGIN_HANDLED;
+
+	ExecuteHamB( Ham_Item_Deploy , get_pdata_cbase( id , 373 ) )
+
+	CurWeapon(id)	
+	return PLUGIN_HANDLED
+} 
+
+public SetKnife(id , Knife) {
+	knife_model[id] = Knife
+	
+	new Clip, Ammo, Weapon = get_user_weapon(id, Clip, Ammo) 
+	if ( Weapon != CSW_KNIFE )
+		return PLUGIN_HANDLED
+	
+	new vModel[56],pModel[56]
+	
+	switch(Knife)
+	{
+		case 0: {
+			format(vModel,55,"models/v_default_fps.mdl")
+			format(pModel,55,"models/p_knife.mdl")
+		}
+		case 1: {
+			format(vModel,55,"models/knife-mod/v_gravity_new1.mdl")
+			format(pModel,55,"models/knife-mod/p_gravity_new1.mdl")
+		}
+		case 2: {
+			format(vModel,55,"models/knife-mod/v_tixon.mdl")
+			format(pModel,55,"models/knife-mod/p_tixon.mdl")
+		}
+		case 3: {
+			format(vModel,55,"models/knife-mod/v_crowbars.mdl")
+			format(pModel,55,"models/knife-mod/p_crowbars.mdl")
+		}
+		case 4: {
+			format(vModel,55,"models/knife-mod/v_hide_fps.mdl")
+			format(pModel,55,"models/knife-mod/p_knife_vip.mdl")
+		}
+		case 5: {
+			format(vModel,55,"models/knife-mod/v_1.mdl")
+			format(pModel,55,"models/knife-mod/p_1.mdl")
+		}
+	} 
+	
+	entity_set_string(id, EV_SZ_viewmodel, vModel)
+	entity_set_string(id, EV_SZ_weaponmodel, pModel)
+	
+	return PLUGIN_HANDLED;  
+}
+
+public event_damage( id ) {
+	
+	new victim_id = id;
+	if( !is_user_connected( victim_id ) ) return PLUGIN_CONTINUE
+	new dmg_take = read_data( 2 );
+	new dmgtype = read_data( 3 );
+	new Float:multiplier = get_pcvar_float(CVAR_DAMAGE);
+	new Float:damage = dmg_take * multiplier;
+	new health = get_user_health( victim_id );
+	
+	new iWeapID, attacker_id = get_user_attacker( victim_id, iWeapID );
+	
+	if( !is_user_connected( attacker_id ) || !is_user_alive( victim_id ) ) {
+		return PLUGIN_HANDLED
+	}
+	
+	if( iWeapID == CSW_KNIFE && knife_model[attacker_id] == 5  || iWeapID == CSW_KNIFE && knife_model[attacker_id] == 4) {
+		
+		if( floatround(damage) >= health ) {
+			if( victim_id == attacker_id ) {
+				return PLUGIN_CONTINUE
+				}else{
+				log_kill( attacker_id, victim_id, "knife", 1 );
+			}
+			
+			return PLUGIN_CONTINUE
+			}else {
+			if( victim_id == attacker_id ) return PLUGIN_CONTINUE
+			
+			fakedamage( victim_id, "weapon_knife", damage, dmgtype );
+		}
+	}
+	return PLUGIN_CONTINUE
+}
+
+
+public CurWeapon(id)
+{
+	new Weapon = read_data(2)
+	
+	if(knife_model[id] == 4 && Weapon == CSW_KNIFE)
+	client_cmd(id,"spk sound/weapons/knife_bublik/current4.wav")
+
+	if(knife_model[id] == 3 && Weapon == CSW_KNIFE)
+	client_cmd(id,"spk sound/weapons/knife_bublik/current3.wav")
+
+	if(knife_model[id] == 4 && !(is_user_admin(id)))
+	knife_model[id] = 1
+
+	if(knife_model[id] == 1 && Weapon == CSW_KNIFE)
+	client_cmd(id,"spk sound/weapons/knife_bublik/current1.wav")
+
+	if(knife_model[id] == 5 && Weapon == CSW_KNIFE)
+	client_cmd(id,"spk sound/weapons/knife_bublik/current3.wav")
+
+	// Set Knife Model
+	SetKnife(id, knife_model[id])   
+	
+	// Task Options
+	
+	if(knife_model[id] == 0 && !task_exists(id) && Weapon == CSW_KNIFE)
+		set_task(TASK_INTERVAL , "task_healing",id,_,_,"b")
+	else if(task_exists(id))
+		remove_task(id)
+	
+	// Abilities
+	set_user_footsteps(id , ( (knife_model[id] == 2 && Weapon == CSW_KNIFE) ? 1 : 0) )
+	
+
+	new Float:Gravity = ((knife_model[id] == 1 && Weapon == CSW_KNIFE)? get_pcvar_float(CVAR_LOWGRAV) : get_pcvar_float(CVAR_NORMGRAV)) / 800.0
+	if(grav_knife[id] >= 1)
+	{
+	//
+	}
+	else
+	{
+	set_user_gravity(id , Gravity)
+	}
+
+	
+	// Speed
+	new Float:Speed
+	if(Weapon != CSW_KNIFE)
+		return PLUGIN_CONTINUE
+	else if(knife_model[id] == 3)
+		Speed = get_pcvar_float(CVAR_HIGHSPEED)
+	else if(knife_model[id] == 2)
+		Speed = get_pcvar_float(CVAR_LOWSPEED)
+	else if(knife_model[id] == 1)
+		Speed = get_pcvar_float(CVAR_LOWSPEED)
+	else if(knife_model[id] == 0)
+		Speed = get_pcvar_float(CVAR_LOWSPEED)
+	else if(knife_model[id] == 5)
+		Speed = get_pcvar_float(CVAR_MINSPEED)
+	else if(knife_model[id] == 4 && Weapon == CSW_KNIFE)
+	{
+		Speed = get_pcvar_float(CVAR_HIGHSPEED)
+		if(grav_knife[id] >= 1)
+		{
+		//
+		}
+		else
+		{
+			set_user_gravity(id , 0.5)
+			set_user_footsteps(id ,1)
+			set_user_maxspeed(id , 450.0)
+		}
+		return PLUGIN_CONTINUE
+	}
+	else
+	{
+	
+	if(grav_knife[id] >= 1)
+	{
+	//
+	}
+	else
+	{
+		set_user_gravity(id , 1.0)
+		set_user_footsteps(id ,0)
+		set_user_maxspeed(id , 250.0)
+	}
+	return PLUGIN_CONTINUE
+	}	
+	set_user_maxspeed(id, Speed)
+	
+	return PLUGIN_HANDLED   
+	
+}
+
+stock log_kill(killer, victim, weapon[],headshot) {
+	user_silentkill( victim );
+	
+	message_begin( MSG_ALL, get_user_msgid( "DeathMsg" ), {0,0,0}, 0 );
+	write_byte( killer );
+	write_byte( victim );
+	write_byte( headshot );
+	write_string( weapon );
+	message_end();
+	
+	new kfrags = get_user_frags( killer );
+	set_user_frags( killer, kfrags++ );
+	new vfrags = get_user_frags( victim );
+	set_user_frags( victim, vfrags++ );
+	
+	return  PLUGIN_CONTINUE
+} 
+
+
+public task_healing(id) {  
+	new addhealth = get_pcvar_num(CVAR_HEALTH_ADD)  
+	if (!addhealth)
+		return  
+	
+	new maxhealth = get_pcvar_num(CVAR_HEALTH_MAX)  
+	if (maxhealth > MAX_HEALTH) { 
+		set_pcvar_num(CVAR_HEALTH_MAX, MAX_HEALTH)  
+		maxhealth = MAX_HEALTH 
+	}  
+	
+	new health = get_user_health(id)   
+	
+	if (is_user_alive(id) && (health < maxhealth)) { 
+		set_user_health(id, health + addhealth)
+		set_hudmessage(0, 255, 0, -1.0, 0.25, 0, 1.0, 2.0, 0.1, 0.1, 4)
+		show_hudmessage(id,"|Regenerare HP|")
+		message_begin(MSG_ONE, get_user_msgid("ScreenFade"), {0,0,0}, id)
+		write_short(1<<10)
+		write_short(1<<10)
+		write_short(0x0000)
+		write_byte(0)
+		write_byte(200)
+		write_byte(0)
+		write_byte(75)
+		message_end()
+	}
+	
+	else {
+		if (is_user_alive(id) && (health > maxhealth))
+			remove_task(id)
+	}
+}  
+
+public client_disconnect(id) {  
+	if(task_exists(id)) remove_task(id)  
+}   
+
+public client_authorized(id)
+	{
+	LoadData(id)
+}
+
+SaveData(id)
+{ 
+	
+	new authid[32]
+	get_user_authid(id, authid, 31)
+	
+	new vaultkey[64]
+	new vaultdata[64]
+	
+	format(vaultkey, 63, "KMOD_%s", authid)
+	format(vaultdata, 63, "%d", knife_model[id])
+	set_vaultdata(vaultkey, vaultdata)
+}
+
+LoadData(id) 
+{ 
+	new authid[32] 
+	get_user_authid(id,authid,31)
+	
+	new vaultkey[64], vaultdata[64]
+	
+	format(vaultkey, 63, "KMOD_%s", authid)
+	get_vaultdata(vaultkey, vaultdata, 63)
+	knife_model[id] = str_to_num(vaultdata)
+	
+} 

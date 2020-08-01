@@ -1,0 +1,104 @@
+#include <amxmodx>
+#include <cstrike>
+#include <hamsandwich>
+#include <fun>
+#include <colorchat>
+
+#define PLUGIN "DR Vip Menu"
+#define VERSION "1.0"
+#define AUTHOR "CsGamers"
+
+#define g_prefix "System"
+
+new g_RespawnCvar
+new g_Respawn[33]
+new g_iMaxPlayers
+
+public plugin_init()
+{
+    
+    register_plugin(PLUGIN, VERSION, AUTHOR)
+    register_clcmd("say /vmenu", "menu");
+    register_logevent("Event_NewRound", 2, "1=Round_Start");
+    g_RespawnCvar = register_cvar("spawn_time", "1")
+    g_iMaxPlayers = get_maxplayers()
+}
+
+public Event_NewRound() 
+{
+    for(new i = 1; i <= g_iMaxPlayers; i++)
+    g_Respawn[i] = 0
+    }
+
+public menu( id )
+{
+    if(get_user_flags(id) & ADMIN_LEVEL_H)
+    {
+        // List of colors for menu(s): "\w" - White, "\y" - Yellow, "\r" - Red, "\d" - Grey\Disabled.
+        new iMenu = menu_create( "\w[\d Deathrun CsGamers \w]^n\yMeniu VIP:", "SubMenu" );
+        
+        menu_additem( iMenu, "Respawn\w", "1", 0 );
+        menu_additem( iMenu, "Deagle + AWP\w", "2", 0 );
+        menu_additem( iMenu, "Get 150\r HP \w+ 150 \rAP\w", "3", 0 );
+        menu_setprop( iMenu, MPROP_EXITNAME, "Exit" );
+        menu_setprop( iMenu, MPROP_EXIT, MEXIT_ALL );
+        
+        menu_display( id, iMenu, 0 );
+    }
+    return PLUGIN_HANDLED;
+}
+
+
+public SubMenu( id, iMenu, iItem )
+{
+    if( iItem == MENU_EXIT )
+    {
+        menu_destroy( iMenu );
+        return PLUGIN_HANDLED;
+    }
+    
+    new iAccess, iData[ 6 ], iName[ 64 ], iCallBack; 
+    menu_item_getinfo( iMenu, iItem, iAccess, iData, charsmax( iData ), iName, charsmax( iName ), iCallBack ); 
+    
+    new iKey = str_to_num( iData );
+    
+    switch( iKey )
+    {
+        case 1: 
+        {
+            g_Respawn[id]++
+            if(g_Respawn[id] <= get_pcvar_num(g_RespawnCvar))
+            {
+                ExecuteHamB(Ham_CS_RoundRespawn, id)
+            }
+            else 
+                ColorChat(id, GREEN, "^x04[%s]^x01 Ai primit deja un respawn!", g_prefix)
+        }    
+        
+        case 2: 
+        {
+            give_item(id, "weapon_deagle");
+            cs_set_user_bpammo(id, CSW_DEAGLE, 999);
+            give_item(id, "weapon_awp");
+            cs_set_user_bpammo(id, CSW_AWP, 999);
+        }
+        
+        case 3:    
+        {
+            set_user_health(id,get_user_health(id) + 150 );
+            set_user_armor(id,get_user_armor(id) + 150 );
+        }
+    }
+    menu_destroy( iMenu );
+    return PLUGIN_HANDLED;
+}
+
+public connecting(id)
+{
+    if(is_user_connected(id) && get_user_flags(id) & ADMIN_LEVEL_H)
+    {
+        new name[32]
+        get_user_name(id, name, 31)
+        ColorChat(id, GREEN, "^x04[%s]^x01 Jucatorul cu VIP^x04 [%s]^x01 a intrat pe server", g_prefix, name)
+    }
+} 

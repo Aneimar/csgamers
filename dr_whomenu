@@ -1,0 +1,248 @@
+#include <amxmodx>
+#include <amxmisc>
+
+#define PLUGIN "WhoMenu V.I.P + TAG + OTHERS"
+#define VERSION "3.0"
+#define AUTHOR "fantasyxd"
+
+#pragma tabsize 0
+
+#define CharsMax(%1) sizeof %1 - 1
+#define time_shower 0.1
+
+#define GROUPS_NAME 8
+#define GROUPS_ACCESS 8
+#define GROUPS_ACCESSVIP 8
+
+#define GROUPS_NAME1 4
+#define GROUPS_ACCESS1 4
+#define GROUPS_ACCESSVIP1 4
+
+#define RRR 255
+#define GGG 255
+#define BBB 255
+
+#define motd_msg "[ Dr.CsGamers.Ro ] ---- [ 89.39.13.151:27015 ]"
+
+//Admini
+new GroupNames[GROUPS_NAME][] = {
+	"...::: Detinator :::...",
+	"...::: Fondator :::...",
+	"...::: Owner :::...",
+	"...::: Co - Owner :::...",
+	"...::: GOD :::...",
+	"...::: Moderator :::...",
+	"...::: Administrator :::...",
+	"...::: Helper :::..."
+}
+
+new GroupFlags[GROUPS_ACCESS][] = {
+	"abcdefghijklmnopqru",
+	"abcdefhijkmnopqru",
+	"abcdefgijmnpqro",
+	"bcdefijmnpqro",
+	"bcdefijmnqro",
+	"bcdefijnmo",
+	"bcdefijmo",
+	"bceij"
+}
+
+new GroupFlagsVIP[GROUPS_ACCESSVIP][] = {
+	"abcdefghijklmnopqrtux",
+	"abcdefhijkmnopqrtux",
+	"abcdefgijmnpqrotx",
+	"bcdefijmnpqrotx",
+	"bcdefijmnqrotx",
+	"bcdefijnmotx",
+	"bcdefijmotx",
+	"bceijtx"
+}
+
+//Sloteri VIP si Scripteri
+new GroupNames1[GROUPS_NAME1][] = {
+	"...::: Admin In Probe :::...",
+	"...::: Slot :::...",
+	"...::: V.I.P :::...",
+	"...::: Scripter :::..."
+}
+
+new GroupFlags1[GROUPS_ACCESS1][] = {
+	"bz1",
+	"b",
+	"tx",
+	"abcdefghijklmnopqrsu"
+}
+
+new GroupFlagsVIP1[GROUPS_ACCESSVIP1][] = {
+	"bz1tx",
+	"btx",
+	"tx",
+	"abcdefghijklmnopqrstux"
+}
+
+new GroupFlagsValue[GROUPS_NAME]
+new GroupFlagsValueVIP[GROUPS_NAME]
+
+new GroupFlagsValue1[GROUPS_NAME1]
+new GroupFlagsValueVIP1[GROUPS_NAME1]
+
+public plugin_init() 
+{
+	register_plugin(PLUGIN, VERSION, AUTHOR)
+
+
+
+	//Admini
+	for(new p_of_pw = 0 ; p_of_pw < GROUPS_NAME ; p_of_pw++)
+	GroupFlagsValue[p_of_pw] = read_flags(GroupFlags[p_of_pw])
+
+	for(new p_of_pw = 0 ; p_of_pw < GROUPS_NAME ; p_of_pw++)
+	GroupFlagsValueVIP[p_of_pw] = read_flags(GroupFlagsVIP[p_of_pw])
+
+	//Sloteri
+	for(new p_of_pw1 = 0 ; p_of_pw1 < GROUPS_NAME1 ; p_of_pw1++)
+	GroupFlagsValue1[p_of_pw1] = read_flags(GroupFlags1[p_of_pw1])
+
+	for(new p_of_pw1 = 0 ; p_of_pw1 < GROUPS_NAME1 ; p_of_pw1++)
+	GroupFlagsValueVIP1[p_of_pw1] = read_flags(GroupFlagsVIP1[p_of_pw1])
+
+	register_clcmd("say", "cmdSay")
+	register_clcmd("say_team", "cmdSay")
+}
+
+public plugin_natives() register_native("OpenWhoMenu", "WhoMenu", 1)
+
+public WhoMenu(id)
+{
+	new menu = menu_create( "\w[ \dDeathrun CsGamers \w] \yMeniu Server\r:", "who_handler" );
+
+	menu_additem(menu, "Lista Admini Online", "1", 0); 
+	menu_additem(menu, "Lista VIP Online", "2", 0);
+	menu_additem(menu, "Pret VIP", "3", 0);
+	menu_additem(menu, "Alte Informatii", "4", 0);
+
+	menu_display( id, menu, 0)
+}
+
+public who_handler( id, menu, item )
+{
+	if( item == MENU_EXIT )
+	{
+		menu_destroy( menu )
+		return PLUGIN_HANDLED
+	}
+
+	new data[6], iName[64]
+	new access, callback
+
+	menu_item_getinfo( menu, item, access, data,5, iName, 63, callback )
+	new key = str_to_num( data )
+	switch( key )
+	{
+		case 1: who_admine(id)
+		case 2: who_sloteri(id)
+		case 3: jailbreak_preturi(id)
+	}
+
+	menu_destroy( menu )
+	return PLUGIN_HANDLED
+}
+
+public jailbreak_preturi(id)
+{
+	new menu = menu_create("\w[ \dDeathrun CsGamers \w] \yPret VIP:", "preturi_handle");
+	menu_additem(menu, "\r* Forum:", "1", 0);
+
+	menu_additem(menu, "in curand", "2", 0);
+	menu_setprop(menu, MPROP_EXIT, MEXIT_ALL);
+	menu_display(id, menu, 0);
+	return PLUGIN_HANDLED;
+}
+
+public preturi_handle(id, menu, item)
+{
+	if(item == MENU_EXIT)
+	{
+		menu_destroy(menu);
+		return PLUGIN_HANDLED;
+	}
+
+	menu_destroy(menu);
+	return PLUGIN_HANDLED;
+}
+
+public cmdSay(id)
+{
+	new say[192]
+	read_args(say,192)
+
+	if((contain(say, "/meniu") != -1 || contain(say, "/who") != -1 || contain(say, "/buyvip") != -1 || contain(say, "/info") != -1))
+		set_task(time_shower,"WhoMenu",id)
+
+	return PLUGIN_CONTINUE
+}
+
+public who_admine(id)
+{
+	new sPlayers[32], iNum, iPlayer
+	new sName[32], sBuffer[1024]
+	new iLen
+
+	iLen = formatex(sBuffer, sizeof sBuffer - 1, "<center><font color=#00BFFF>><b> Lista Admine <br> Dr.CsGamers.Ro</b></font></center><body bgcolor=#000000><font color=#7b68ee><pre>")
+	get_players(sPlayers, iNum, "ch")
+
+	for(new p_of_pw = 0; p_of_pw < GROUPS_NAME ; p_of_pw++)
+	{
+		iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center><h5><font color=^"cyan^">%s^n</font></h5></center>", GroupNames[p_of_pw])
+		for(new b = 0; b < iNum ; b++)
+		{
+			iPlayer = sPlayers[b]
+			if( get_user_flags(iPlayer) == GroupFlagsValue[p_of_pw])
+			{
+				get_user_name(iPlayer, sName, sizeof sName - 1)
+				iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center>%s^n</center>", sName)
+			}
+			else if(get_user_flags(iPlayer) == GroupFlagsValueVIP[p_of_pw])
+			{
+				get_user_name(iPlayer, sName, sizeof sName - 1)
+				iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center><center><center>[VIP]%s[VIP]</center>", sName)
+			}
+		}
+	}
+
+	show_motd(id, sBuffer, motd_msg)
+	return 0
+}
+
+public who_sloteri(id)
+{
+	new sPlayers[32], iNum, iPlayer
+	new sName[32], sBuffer[1024]
+	new iLen
+
+	iLen = formatex(sBuffer, sizeof sBuffer - 1, "<center><font color=#0099FF><b> Vrei unele din aceste grade ? <br> CorexZone : skype ! </b></font></center><body bgcolor=#000000><font color=#7b68ee><pre>")
+	get_players(sPlayers, iNum, "ch")
+
+	for(new p_of_pw1 = 0; p_of_pw1 < GROUPS_NAME1 ; p_of_pw1++)
+	{
+		iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center><h5><font color=^"red^">%s^n</font></h5></center>", GroupNames1[p_of_pw1])
+		for(new b = 0; b < iNum ; b++)
+		{
+			iPlayer = sPlayers[b]
+			
+			if( get_user_flags(iPlayer) == GroupFlagsValue1[p_of_pw1])
+			{
+				get_user_name(iPlayer, sName, sizeof sName - 1)
+				iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center><font color=#00BFFF>%s^n</font></center><font color=#7b68ee><pre>", sName)
+			}
+			else if(get_user_flags(iPlayer) == GroupFlagsValueVIP1[p_of_pw1])
+			{
+				get_user_name(iPlayer, sName, sizeof sName - 1)
+				iLen += formatex(sBuffer[iLen], CharsMax(sBuffer) - iLen, "<center>(VIP) %s (VIP)^n</center>", sName)
+			}
+		}
+	}
+
+	show_motd(id, sBuffer, motd_msg)
+	return 0
+}

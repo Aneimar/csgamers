@@ -1,0 +1,119 @@
+#include <amxmodx>
+#include <amxmisc>
+#include <engine>
+
+#define LAST_MAPS_SAVE 3
+
+#define	FL_WATERJUMP	(1<<11)	// popping out of the water
+#define	FL_ONGROUND	(1<<9)	// not moving on the ground
+
+new gSaveFile[64];
+new gLastMapName[LAST_MAPS_SAVE][32];
+new gLastMapTime[LAST_MAPS_SAVE];
+new gNumLastMaps;
+
+public plugin_init() {
+	register_plugin("Bhop Unlag Harti Jucate", "1.0", "homorapian")
+	register_cvar("sbhopper_version", "1.0", FCVAR_SERVER)
+	register_logevent("LogEvent_Round_Start", 2, "1=Round_Start")  
+
+	register_cvar("bh_enabled", "1")
+	register_cvar("bh_autojump", "1")
+	register_cvar("bh_showusage", "1")
+
+	register_clcmd("say /harti", "CmdLastMaps");
+
+	get_datadir(gSaveFile, charsmax(gSaveFile));
+	add(gSaveFile, charsmax(gSaveFile), "/hartijucate.txt");
+	
+	new f = fopen(gSaveFile, "rt");
+	
+	if(f) {
+		new line[64], minutes[12];
+		
+		while(!feof(f) && gNumLastMaps < LAST_MAPS_SAVE) {
+			fgets(f, line, charsmax(line));
+			trim(line);
+			
+			if(line[0]) {
+				parse(line, gLastMapName[gNumLastMaps], charsmax(gLastMapName[]), minutes, charsmax(minutes));
+				gLastMapTime[gNumLastMaps++] = str_to_num(minutes);
+			}
+		}
+		
+		fclose(f);
+	}
+}
+
+public plugin_end() {
+	new minutes = floatround(get_gametime() / 60.0, floatround_ceil);
+	
+	new map[32];
+	get_mapname(map, charsmax(map));
+	
+	new f = fopen(gSaveFile, "wt");
+	
+	fprintf(f, "^"%s^" %d", map, minutes);
+	
+	if(gNumLastMaps == LAST_MAPS_SAVE) {
+		gNumLastMaps--;
+	}
+	
+	for(new i = 0; i < gNumLastMaps; i++) {
+		fprintf(f, "^n^"%s^" %d", gLastMapName[i], gLastMapTime[i]);
+	}
+	
+	fclose(f);
+}
+
+public CmdLastMaps(id) {
+	if(gNumLastMaps) {
+		new maps[192], len;
+		for(new i = 0; i < gNumLastMaps; i++) {
+			len += formatex(maps[len], charsmax(maps) - len, "%s%s (%dmin)", len ? ", " : "", gLastMapName[i], gLastMapTime[i]);
+		}
+		
+		client_print(id, print_chat, "* Ultimele harti jucate: %s", maps);
+	} else {
+		client_print(id, print_chat, "* Sorry, no last maps have been saved in the logs.");
+	}
+
+}
+public LogEvent_Round_Start() 
+{
+    server_cmd("amx_cvar sv_unlag 1")
+
+    return PLUGIN_CONTINUE
+
+}
+
+public client_PreThink(id) {
+	if (!get_cvar_num("bh_enabled"))
+		return PLUGIN_CONTINUE
+
+	entity_set_float(id, EV_FL_fuser2, 0.0)		// Won't slow down after a jump
+
+	if (!get_cvar_num("bh_autojump"))
+		return PLUGIN_CONTINUE
+
+	if (entity_get_int(id, EV_INT_button) & 2) {	
+		new flags = entity_get_int(id, EV_INT_flags)
+
+		if (flags & FL_WATERJUMP)
+			return PLUGIN_CONTINUE
+		if ( entity_get_int(id, EV_INT_waterlevel) >= 2 )
+			return PLUGIN_CONTINUE
+		if ( !(flags & FL_ONGROUND) )
+			return PLUGIN_CONTINUE
+
+		new Float:velocity[3]
+		entity_get_vector(id, EV_VEC_velocity, velocity)
+		velocity[2] += 250.0
+		entity_set_vector(id, EV_VEC_velocity, velocity)
+
+		entity_set_int(id, EV_INT_gaitsequence, 6)	// Jump graphics
+	}
+	return PLUGIN_CONTINUE
+}
+
+

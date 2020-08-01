@@ -1,0 +1,198 @@
+#include <amxmodx>
+#include <amxmisc>
+#include <cstrike>
+#include <fun>
+#include <csx>
+
+#define ADVERTISING_TIME 359.0
+#define adtime	 600.0 //Default of 10 minuites
+
+new pcvar_Advertise
+new pcvar_Display
+
+new DnsName, MaxPlayers;
+
+stock const messages[][] = {
+"[VIP]CsGamers: Pentru pret si avantaje VIP, scrie in say /beneficii"
+}
+
+public plugin_init()
+{
+	register_plugin("ResetScore Welcome Beneficii VIP", "1.0", "Silenttt")
+
+	DnsName = register_cvar ( "amx_server_dns", "Dr.CsGamers.Ro" );
+
+	MaxPlayers = get_maxplayers (  );
+
+	register_clcmd("say /resetscore", "reset_score")
+	register_clcmd("say /restartscore", "reset_score")
+	register_clcmd("say /rs", "reset_score")	
+
+	register_clcmd ("say /beneficii" , "beneficii_motd" , -1);
+	register_clcmd ("say_team /beneficii" , "beneficii_motd" , -1);
+
+	pcvar_Advertise = register_cvar("sv_rsadvertise", "0")
+	pcvar_Display = register_cvar("sv_rsdisplay", "0")
+	
+	if(get_cvar_num("sv_rsadvertise") == 1)
+	{
+		set_task(adtime, "advertise", _, _, _, "b")
+		set_task(ADVERTISING_TIME, "show_messages", _, _, _,"b");
+	}
+}
+
+public reset_score(id)
+{
+	cs_set_user_deaths(id, 0)
+	set_user_frags(id, 0)
+	cs_set_user_deaths(id, 0)
+	set_user_frags(id, 0)
+	
+	if(get_pcvar_num(pcvar_Display) == 1)
+	{
+		new name[33]
+		get_user_name(id, name, 32)
+		C_PrintChat( id, "!e%s !c,ti-ai resetat scorul cu succes", name)
+	}
+	else
+	{
+		C_PrintChat( id, "!cNu uita de forum: !vwww.csgamers.ro")
+	}
+}
+
+public advertise()
+{
+	set_hudmessage(255, 0, 0, -1.0, 0.20, 0, 0.2, 12.0)
+	show_hudmessage(0, "Daca vrei sa iti resetezi scorul, scrie in say /rs")
+}
+
+public client_putinserver(id)
+{
+
+	if ( !is_user_bot ( id ) && !is_user_hltv ( id ) )
+	{
+		set_task ( 15.0, "TaskShowMessage", id );
+	}
+
+	if(get_pcvar_num(pcvar_Advertise) == 1)
+	{
+		set_task(48.0, "connectmessage", id, _, _, "a", 1)
+	}
+}
+
+public connectmessage(id)
+{
+	if(is_user_connected(id))
+	{
+	// C_PrintChat( 0, "!v[ROBOTEL]!eCsGamers: !cPentru a reseta scorul, scrie in say !v/rs")
+	}
+}
+
+
+public TaskShowMessage ( id )
+{
+	if ( !is_user_connected ( id ) ) return;
+	
+	new Name [32], ServerName [16], Stats [8], Body [8];
+	
+	get_user_name ( id, Name, charsmax ( Name ) );
+	
+	get_pcvar_string ( DnsName, ServerName, charsmax ( ServerName ) );
+	
+	new RankPos = get_user_stats ( id, Stats, Body );
+	
+	new RankMax = get_statsnum (  );
+	
+	C_PrintChat( id, "!e** !cSalut !e%s!c! Bine ai venit pe !v%s!c. !e[!cRank %d din %d!e]", Name, ServerName, RankPos, RankMax );
+	
+	C_PrintChat( id, "!e** !cMomentan sunt conectati [!e%d!c] !vAdmin%s !csi [!e%d!c] !vMembr%s VIP", GetAdmins (  ), GetAdmins (  ) == 1 ? "" : "i", GetVips (  ), GetVips (  ) == 1 ? "u" : "ii" );
+}
+
+GetAdmins (  )
+{
+	static iAdmins, id;
+	
+	iAdmins = 0;
+	
+	for ( id = 1; id <= MaxPlayers; id ++ )
+	{
+		if ( is_user_connected ( id ) )
+		{			
+			if ( get_user_flags ( id ) & ADMIN_KICK )
+				
+				iAdmins ++;
+		}
+	}
+	return iAdmins;
+}
+
+GetVips (  )
+{
+	static iVips, id;
+	
+	iVips = 0;
+	
+	for ( id = 1; id <= MaxPlayers; id ++ )
+	{
+		if ( is_user_connected ( id ) )
+		{			
+			if ( get_user_flags ( id ) & ADMIN_LEVEL_H )
+				
+				iVips ++;
+		}
+	}
+	return iVips;
+}
+
+
+
+public beneficii_motd(id) show_motd(id,"/addons/amxmodx/configs/beneficii_vip.html")
+
+
+public show_messages()
+{
+new Buffer[256];
+formatex(Buffer, sizeof Buffer - 1, "^x02%s", messages[random(sizeof messages)]);
+
+new players[32], num, id;
+get_players(players, num);
+
+for(new i = 0 ; i < num ; i++)
+{
+id = players[i]
+
+message_begin(MSG_ONE, get_user_msgid("SayText"), _, id);
+write_byte(id);
+write_string(Buffer);
+message_end();
+}
+}
+
+stock C_PrintChat( const id, const input[ ], any:... )
+{
+	new iCount = 1, iPlayers[ 32 ];
+	static szMsg[ 320 ], szMsg2[ 320 ];
+	vformat( szMsg, 190, input, 3 );
+	format( szMsg2, 190, "!c%s", szMsg );
+	replace_all( szMsg2, 190, "!v", "^4" );
+	replace_all( szMsg2, 190, "!c", "^1" );
+	replace_all( szMsg2, 190, "!e", "^3" );
+	if( id )
+	{
+		iPlayers[ 0 ] = id;
+	}
+	else
+	{
+		get_players( iPlayers, iCount, "ch" );
+	}
+	for( new i = 0; i < iCount; i++ )
+	{
+		if( is_user_connected( iPlayers[ i ] ) )
+		{
+			message_begin( MSG_ONE_UNRELIABLE, get_user_msgid( "SayText" ), _, iPlayers[ i ] );
+			write_byte( iPlayers[ i ] );
+			write_string( szMsg2 );
+			message_end( );
+		}
+	}
+}

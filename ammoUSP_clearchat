@@ -1,0 +1,116 @@
+#include <amxmodx>
+#include <engine>
+#include <cstrike>
+
+#define ADMIN_CC ADMIN_SLAY
+
+new const Tag[] = "Dr.CsGamers.Ro";
+
+new Float:g_Time[33];
+new cool_down;
+
+new const clearchat[] = { "sound/taci_dracu.mp3" }
+
+
+public plugin_init() {
+    register_plugin("Ammo USP si ClearChat", "0.3.1", "Vicious Vixen")
+    register_event("CurWeapon" , "event_CurWeapon" , "be" , "1=1")
+    register_clcmd ("say /cc", "ClearChat");    
+    register_clcmd ("say /clearchat", "ClearChat");
+    cool_down = register_cvar ("cc_admin_cooldown", "30");
+
+
+
+}
+
+public ClearChat(id)
+{
+	if(!(get_user_flags(id) & ADMIN_CC))
+		return PLUGIN_HANDLED;
+
+	static Float: cooldown;
+	cooldown = get_pcvar_float(cool_down);
+	if(get_gametime() - g_Time[id] < cooldown)
+	{
+		ChatColor(id,"!t[!g%s!t]!y Ai folosit deja clearchat-ul asteapta !t%.f0 !ysecunde!t.", Tag, cooldown - (get_gametime() - g_Time[id]));
+		return PLUGIN_HANDLED;
+	}
+
+	g_Time[id] = get_gametime();
+
+	new AdminName[33];
+	get_user_name(id, AdminName,32);
+
+	ChatColor(0,"!g\ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ /",AdminName);
+	ChatColor(0,"!g| ---------------------------| !tADMINUL !g%s !ta sters chatul!g |-------------------------- |",AdminName);
+	ChatColor(0,"!g| ---------------------------| !tMOTIV: !gRECLAMA!y / !tVULGARITATE!g |------------------------ |");
+	ChatColor(0,"!g| ---------------------------------**********| !t%s!g |*********--------------------------- |",Tag);
+	ChatColor(0,"!g\ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ /",AdminName);
+
+
+	client_cmd(0,"clear");
+	client_cmd(0, "wait;wait;wait;wait;clear");
+	server_cmd("clear");
+
+	return PLUGIN_CONTINUE;
+}
+
+public plugin_precache()
+	precache_generic(clearchat)
+
+
+public event_CurWeapon(id) {
+    if(!is_user_alive(id))
+        return PLUGIN_CONTINUE;
+    
+    static weaponid
+    new clip
+    
+    weaponid = read_data(2)
+    clip = read_data(3)
+    
+    give_ammo(id , weaponid , clip)
+    
+    return PLUGIN_CONTINUE;
+}
+
+public give_ammo(id , weaponid , clip) {
+    if(is_user_alive(id) && get_user_team(id) == 2 && weaponid==CSW_USP && !clip) {
+        static wpn
+        wpn = -1
+        
+        while((wpn = find_ent_by_class(wpn , "weapon_usp")) != 0) {
+            if(id == entity_get_edict(wpn , EV_ENT_owner)) {
+                cs_set_weapon_ammo(wpn , 12)
+                break;
+            }
+        
+  }
+  }
+  }
+
+
+stock ChatColor(const id, const input[], any:...)
+{
+	new count = 1, players[32]
+	static msg[191]
+	vformat(msg, 190, input, 3)
+
+	replace_all(msg, 190, "!g", "^4")
+	replace_all(msg, 190, "!y", "^1")
+	replace_all(msg, 190, "!t", "^3")
+
+	if (id) players[0] = id; else get_players(players, count, "ch")
+	{
+		for (new i = 0; i < count; i++)
+		{
+			if (is_user_connected(players[i]))
+			{
+				message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, players[i]);
+				write_byte(players[i]);
+				write_string(msg);
+				message_end();
+			}
+		}
+	}
+} 
